@@ -19,7 +19,7 @@ def test_release_safety_blocks_private_and_location_artifact_names():
     release_safety = load_release_safety()
 
     paths = [
-        "health_data_assets/visuals/cli/visual_specs.json",
+        "health_data_assets/skills/health-visuals/references/ansi_visual_patterns.md",
         "dist/hermes_health_data-0.1.0.data/.context/todos.md",
         "exports/Morning-Run.GPX",
         "exports/LOCATION-HISTORY.JSON",
@@ -40,7 +40,13 @@ def test_release_safety_blocks_private_and_location_artifact_names():
 def test_release_safety_requires_packaged_visual_assets():
     release_safety = load_release_safety()
 
-    assert "health_data_assets/visuals/cli/visual_specs.json" in (
+    assert "health_data_assets/skills/health-visuals/references/terminal_ascii_patterns.md" in (
+        release_safety.REQUIRED_PACKAGE_ASSETS
+    )
+    assert "health_data_assets/skills/health-visuals/references/ansi_visual_patterns.md" in (
+        release_safety.REQUIRED_PACKAGE_ASSETS
+    )
+    assert "health_data_assets/skills/health-visuals/references/ansi_color_implementation_plan.md" in (
         release_safety.REQUIRED_PACKAGE_ASSETS
     )
     assert "health_data_assets/visuals/cli/prompts/health_visual_brief.md" in (

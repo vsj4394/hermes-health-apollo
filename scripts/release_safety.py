@@ -68,8 +68,10 @@ REQUIRED_PACKAGE_ASSETS = (
     "health_data_assets/skills/health-coach/SKILL.md",
     "health_data_assets/skills/health-visuals/SKILL.md",
     "health_data_assets/skills/health-visuals/references/cli_visual_patterns.md",
+    "health_data_assets/skills/health-visuals/references/terminal_ascii_patterns.md",
+    "health_data_assets/skills/health-visuals/references/ansi_visual_patterns.md",
+    "health_data_assets/skills/health-visuals/references/ansi_color_implementation_plan.md",
     "health_data_assets/visuals/cli/README.md",
-    "health_data_assets/visuals/cli/visual_specs.json",
     "health_data_assets/visuals/cli/prompts/health_visual_brief.md",
     "health_data_assets/visuals/cli/prompts/interpretation_guardrails.md",
 )
