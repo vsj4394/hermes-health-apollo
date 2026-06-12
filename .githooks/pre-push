@@ -1,4 +1,17 @@
 #!/bin/sh
+# Managed by Hermes Health Apollo git hook installer.
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+python_bin=$(command -v python3 || command -v python || true)
+
+if [ -z "$python_bin" ]; then
+  echo "BLOCKED: python3 or python is required to run scripts/secret_scan.py" >&2
+  exit 1
+fi
+
+"$python_bin" "$repo_root/scripts/secret_scan.py"
+
 # Block pushing private ref namespaces (Conductor checkpoints, agent logs).
 # pre-push receives one line per ref being pushed, including under --mirror.
 status=0
