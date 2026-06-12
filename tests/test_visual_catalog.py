@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 
@@ -15,6 +16,34 @@ def test_cli_visual_specs_reference_existing_mockups():
         assert spec["privacy_default"]
         mockup = specs_path.parent / spec["mockup"]
         assert mockup.exists(), spec["id"]
+
+
+def test_cli_visual_readme_catalog_matches_specs():
+    spec_ids = [spec["id"] for spec in _visual_specs()]
+    readme = Path("visuals/cli/README.md").read_text(encoding="utf-8")
+    catalog_section = readme.split("## Catalog", 1)[1].split("See `visual_specs.json`", 1)[
+        0
+    ]
+    readme_ids = re.findall(r"`([a-z0-9_]+)`", catalog_section)
+
+    assert readme_ids == spec_ids
+
+
+def test_packaged_visual_assets_mirror_repo_catalog():
+    repo_root = Path("visuals/cli")
+    asset_root = Path("health_data_assets/visuals/cli")
+    repo_files = sorted(
+        path.relative_to(repo_root) for path in repo_root.rglob("*") if path.is_file()
+    )
+    asset_files = sorted(
+        path.relative_to(asset_root) for path in asset_root.rglob("*") if path.is_file()
+    )
+
+    assert asset_files == repo_files
+    for relative_path in repo_files:
+        assert (asset_root / relative_path).read_text(encoding="utf-8") == (
+            repo_root / relative_path
+        ).read_text(encoding="utf-8")
 
 
 def test_cli_visual_mockups_do_not_use_real_identity_markers():

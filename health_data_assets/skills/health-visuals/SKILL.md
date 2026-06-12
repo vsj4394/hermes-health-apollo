@@ -16,6 +16,7 @@ describes visual specs; it is not a prompt router.
 2. Check the existing catalog first:
    - `visuals/cli/visual_specs.json`
    - `visuals/cli/mockups/`
+   - packaged mirror: `health_data_assets/visuals/cli/`
    - If packaged without the repo catalog, read
      `references/cli_visual_patterns.md`.
 3. If a catalog visual fits, use it. Query data with existing health tools before

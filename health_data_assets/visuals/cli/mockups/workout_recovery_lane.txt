@@ -1,0 +1,10 @@
+WORKOUT RECOVERY LANE   last 30d   privacy: safe
+
+day        workout          intensity   same-day strain   next readiness
+Mon 01     run              medium      12.4 [######....]  78 [########..]
+Thu 04     strength         high        15.8 [########..]  69 [######....]
+Sun 07     walk             low          5.1 [###.......]  84 [#########.]
+Tue 09     intervals        high        17.2 [#########.]  65 [######....]
+
+pattern: high-intensity late days have softer next readiness
+caveat: suppress rows below 5 comparable workouts

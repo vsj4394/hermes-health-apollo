@@ -1,0 +1,10 @@
+BASELINE DRIFT BOARD   recent 14d vs prior 28d   privacy: safe
+
+metric                  prior      recent     delta      state
+resting HR              51 bpm     54 bpm     +3 bpm     higher [!!!....]
+HRV                     72 ms      64 ms      -8 ms      lower  [!!!....]
+SpO2                    97.2%      97.0%      -0.2%      stable [.......]
+sleep score             81         76         -5         softer [!!.....]
+
+combined signal: recovery baseline slightly strained
+caveat: compare against your own baseline, not population norms

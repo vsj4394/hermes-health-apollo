@@ -1,0 +1,12 @@
+STRESS WATERFALL   2026-06-12   privacy: safe
+
+start baseline                    0m  |
+morning meetings                +42m  |++++
+email burst                     +18m  |++++++
+walk / lunch reset              -25m  |+++
+afternoon deep work              +8m  |++++
+workout                         +34m  |+++++++
+evening recovery                -31m  |++++
+
+net high-stress time: 46m
+caveat: source buckets are associations, not causes

@@ -232,6 +232,14 @@ def test_wheel_contains_entry_point_assets(tmp_path):
         "health_data_assets/skills/health-visuals/references/cli_visual_patterns.md"
         in names
     )
+    expected_visual_assets = [
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "health_data_assets" / "visuals" / "cli").rglob("*")
+        if path.is_file()
+    ]
+    assert expected_visual_assets
+    for asset_name in expected_visual_assets:
+        assert asset_name in names
     for module_name in INSTALLED_MODULES:
         assert module_name in names
     assert "health-data = health_data_entry\n" in entry_points

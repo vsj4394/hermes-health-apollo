@@ -51,6 +51,10 @@ health_data_assets = [
   "skills/health-coach/SKILL.md",
   "skills/health-visuals/SKILL.md",
   "skills/health-visuals/references/cli_visual_patterns.md",
+  "visuals/cli/README.md",
+  "visuals/cli/visual_specs.json",
+  "visuals/cli/mockups/*.txt",
+  "visuals/cli/prompts/*.md",
 ]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,16 @@
+CALENDAR LOAD SKYLINE   last 4 weeks   privacy: safe
+
+hour      Mon      Tue      Wed      Thu      Fri
+08       ..       .#       ..       ..       ..
+09       ##       ###      ##       ###      #.
+10       ####     #####    ####     #####    ##
+11       ###      ####     ###      ####     ##
+12       .#       ##       .#       ##       ..
+13       ##       ###      ###      ###      #.
+14       ####     #####    #####    ####     ##
+15       ###      ####     ####     ###      ##
+16       ##       ###      ##       ###      #.
+17       .#       ##       .#       #.       ..
+
+hotspots: Tue/Wed 10:00-15:00
+caveat: occupancy only; event names and attendees hidden

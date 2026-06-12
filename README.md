@@ -427,7 +427,7 @@ Publish from a clean tracked-file snapshot instead:
 
 ```bash
 python scripts/secret_scan.py
-uv run --extra dev python -m pytest tests/test_secret_scan.py tests/test_context_commands.py
+uv run --extra dev python -m pytest tests/test_secret_scan.py tests/test_context_commands.py tests/test_visual_catalog.py tests/test_register_contract.py
 scripts/create_public_snapshot.sh ../hermes-health-data-public
 cd ../hermes-health-data-public
 git commit -m "Release Hermes health data plugin"
