@@ -364,9 +364,12 @@ def connect_oura(
             "connected": False,
             **oura_registration_details(redirect_uri=redirect_uri),
             "guidance": (
-                "Create an Oura developer application, copy its Client ID and "
-                "Client Secret, then run `hermes health connect --client-id <id> "
-                "--client-secret <secret>`."
+                "Create an Oura developer application at registration_url. Use "
+                "redirect_uri exactly, select the required_portal_scopes, save "
+                "the app, copy its Client ID and Client Secret, then run "
+                "`hermes health connect --client-id <id> "
+                "--client-secret <secret>`. The credentials are stored in "
+                "`~/.hermes/.env`; do not commit them."
             ),
         }
 
@@ -402,7 +405,8 @@ def connect_oura(
                     "requested_oauth_scopes": requested_scopes,
                     **oura_registration_details(redirect_uri=redirect_uri),
                     "guidance": (
-                        "Open authorize_url, approve Oura, then re-run "
+                        "Open authorize_url, approve Oura, copy the `code` query "
+                        "parameter from the localhost callback URL, then re-run "
                         "`hermes health connect --code <code> --state <state>`."
                     ),
                 }
@@ -416,7 +420,8 @@ def connect_oura(
                 "requested_oauth_scopes": requested_scopes,
                 **oura_registration_details(redirect_uri=redirect_uri),
                 "guidance": (
-                    "Open authorize_url, approve Oura, then re-run "
+                    "Open authorize_url, approve Oura, copy the `code` query "
+                    "parameter from the localhost callback URL, then re-run "
                     "`hermes health connect --code <code> --state <state>`."
                 ),
             }
@@ -430,7 +435,8 @@ def connect_oura(
             "requested_oauth_scopes": requested_scopes,
             **oura_registration_details(redirect_uri=redirect_uri),
             "guidance": (
-                "Open authorize_url, approve Oura, then re-run "
+                "Open authorize_url, approve Oura, copy the `code` query "
+                "parameter from the localhost callback URL, then re-run "
                 "`hermes health connect --code <code> --state <state>`."
             ),
         }

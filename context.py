@@ -86,6 +86,11 @@ def connect_google_workspace(
             "connected": False,
             "error": "Google Workspace skill is not installed.",
             "expected_setup_script": str(setup_script),
+            "guidance": (
+                "Install and enable Hermes' Google Workspace productivity skill, "
+                "then re-run `hermes health connect-google --install-deps "
+                "--open-browser`."
+            ),
         }
 
     if install_deps:
@@ -153,8 +158,12 @@ def connect_google_workspace(
             "connected": False,
             "client_secret_required": True,
             "guidance": (
-                "Run `hermes health connect-google --open-browser --client-secret "
-                "/path/to/google_client_secret.json`."
+                "Create a Google Cloud Desktop app OAuth client, download its "
+                "JSON credentials file with authorized redirect URI "
+                "`http://localhost:1/`, then run `hermes health connect-google "
+                "--open-browser --client-secret /path/to/google_client_secret.json`. "
+                "If the JSON is in ~/Downloads or ~/Desktop, `hermes health "
+                "connect-google --open-browser` can discover it automatically."
             ),
             "check": check_result,
         }
@@ -649,8 +658,12 @@ def _google_authorization_response(result: dict, *, open_browser: bool) -> dict:
         "authorize_url": authorize_url,
         "browser_opened": False,
         "guidance": (
-            "Open authorize_url, approve access, copy the full localhost "
-            "redirect URL, then run `hermes health connect-google --auth-code '<URL>'`."
+            "Open authorize_url, approve Google access, then copy the full "
+            "`http://localhost:1/...` URL from the browser address bar. A browser "
+            "connection error is expected because no server listens on port 1; "
+            "the OAuth client must have `http://localhost:1/` registered as an "
+            "authorized redirect URI. "
+            "Finish with `hermes health connect-google --auth-code '<FULL_URL>'`."
         ),
     }
     if open_browser and authorize_url:
@@ -660,8 +673,9 @@ def _google_authorization_response(result: dict, *, open_browser: bool) -> dict:
             response["browser_error"] = str(exc)
     if response["browser_opened"]:
         response["guidance"] = (
-            "Approve access in the browser, copy the full localhost redirect URL, "
-            "then run `hermes health connect-google --auth-code '<URL>'`."
+            "Approve access in the browser, copy the full `http://localhost:1/...` "
+            "redirect URL from the address bar, then run `hermes health "
+            "connect-google --auth-code '<FULL_URL>'`."
         )
     return response
 
@@ -737,7 +751,9 @@ def _normalize_google_setup_result(result: dict, *, connected: bool) -> dict:
     }
     if not result["ok"]:
         normalized["guidance"] = (
-            "Run `hermes health connect-google --open-browser --client-secret "
+            "Create or download a Google Cloud Desktop app OAuth client JSON, then "
+            "confirm it allows redirect URI `http://localhost:1/`, then "
+            "run `hermes health connect-google --open-browser --client-secret "
             "/path/to/google_client_secret.json` to start Google Workspace OAuth."
         )
     return normalized

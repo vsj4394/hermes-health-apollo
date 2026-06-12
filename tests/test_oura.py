@@ -364,6 +364,7 @@ def test_connect_oura_loopback_timeout_returns_manual_guidance(modules):
     assert result["authorize_url"].startswith("https://cloud.ouraring.com/oauth/authorize?")
     assert result["state"]
     assert oura.pending_state_path().exists()
+    assert "localhost callback URL" in result["guidance"]
     assert "hermes health connect --code <code> --state <state>" in result["guidance"]
 
 

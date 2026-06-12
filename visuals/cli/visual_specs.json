@@ -1,0 +1,56 @@
+[
+  {
+    "id": "meeting_stress_leaderboard",
+    "title": "Meeting Stress Leaderboard",
+    "purpose": "Rank meetings or meeting clusters by biometric elevation versus local baseline.",
+    "data": ["calendar_events", "heart_rate_samples", "stress_samples"],
+    "privacy_default": "Redact titles and use role labels, pseudonyms, or attendee counts.",
+    "minimum_coverage": "At least 5 meetings with overlapping biometric samples.",
+    "mockup": "mockups/meeting_stress_leaderboard.txt"
+  },
+  {
+    "id": "attendee_effect_board",
+    "title": "Attendee Effect Board",
+    "purpose": "Estimate per-attendee marginal effect with regularized rankings and confidence labels.",
+    "data": ["calendar_attendees", "meeting_scores", "heart_rate_baselines"],
+    "privacy_default": "Pseudonymize attendees and suppress rows below the minimum n threshold.",
+    "minimum_coverage": "At least 3 meetings per displayed pseudonym.",
+    "mockup": "mockups/attendee_effect_board.txt"
+  },
+  {
+    "id": "recovery_gate",
+    "title": "Recovery Gate",
+    "purpose": "Compare readiness and sleep against today or tomorrow's calendar load.",
+    "data": ["readiness_score", "sleep_score", "calendar_peek", "meeting_minutes"],
+    "privacy_default": "Show minutes and blocked windows, not event names.",
+    "minimum_coverage": "Current readiness or sleep plus upcoming calendar availability.",
+    "mockup": "mockups/recovery_gate.txt"
+  },
+  {
+    "id": "day_shape_barcode",
+    "title": "Day Shape Barcode",
+    "purpose": "Compress sleep, stress, calendar, email, and food timing into one scan-friendly row.",
+    "data": ["sleep_interval", "hourly_stress", "calendar_occupancy", "email_counts", "meal_times"],
+    "privacy_default": "Use counts, bars, and meal letters only.",
+    "minimum_coverage": "At least two domains present for the day.",
+    "mockup": "mockups/day_shape_barcode.txt"
+  },
+  {
+    "id": "workload_outcome_matrix",
+    "title": "Workload Outcome Matrix",
+    "purpose": "Bucket meeting and email load against stress, sleep, or readiness outcomes.",
+    "data": ["meeting_minutes", "email_received_count", "stress_high_seconds", "sleep_score"],
+    "privacy_default": "Aggregated quadrants only.",
+    "minimum_coverage": "At least 30 days with calendar/email and one biometric outcome.",
+    "mockup": "mockups/workload_outcome_matrix.txt"
+  },
+  {
+    "id": "coverage_trust_ledger",
+    "title": "Coverage Trust Ledger",
+    "purpose": "Show whether each data domain is complete enough to trust a result.",
+    "data": ["health_coverage", "sync_runs", "sync_errors", "table_row_counts"],
+    "privacy_default": "Operational metadata only.",
+    "minimum_coverage": "Any installed source.",
+    "mockup": "mockups/coverage_trust_ledger.txt"
+  }
+]

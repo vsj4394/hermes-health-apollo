@@ -362,6 +362,9 @@ def test_status_reports_primary_chat_guidance_and_per_source_freshness(monkeypat
     assert result["admin_commands"] == ["setup", "status", "sync"]
     assert result["freshness_policy_hours"] == 6
     assert 'hermes`, then ask "How did I sleep last night?"' in result["guidance"]
+    assert "Oura developer app" in result["guidance"]
+    assert "Google Workspace helper" in result["guidance"]
+    assert "http://localhost:1/" in result["guidance"]
     assert "hermes health ask" in result["debug_command"]
 
 

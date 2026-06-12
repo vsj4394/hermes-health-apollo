@@ -176,7 +176,13 @@ def status_snapshot() -> dict[str, Any]:
         "sync_schedules": _sync_schedules(),
         "recent_runs": _recent_runs(),
         "privacy_defaults": DEFAULT_PRIVACY,
-        "guidance": 'Run `hermes`, then ask "How did I sleep last night?"',
+        "guidance": (
+            'Run `hermes`, then ask "How did I sleep last night?" After setup, '
+            "Oura auth requires an Oura developer app plus "
+            "`HERMES_OURA_CLIENT_ID`/`HERMES_OURA_CLIENT_SECRET`; Google auth "
+            "requires the Google Workspace helper and a Google Cloud Desktop app "
+            "OAuth JSON with redirect URI `http://localhost:1/`."
+        ),
         "debug_command": 'hermes health ask "How did I sleep last night?"',
     }
 

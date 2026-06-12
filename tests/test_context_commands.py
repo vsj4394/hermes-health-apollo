@@ -100,6 +100,8 @@ def test_connect_google_workspace_reports_missing_client_secret(monkeypatch, tmp
     assert result["connected"] is False
     assert result["client_secret_required"] is True
     assert "hermes health connect-google --open-browser --client-secret" in result["guidance"]
+    assert "Google Cloud Desktop app OAuth client" in result["guidance"]
+    assert "http://localhost:1/" in result["guidance"]
 
 
 def test_connect_google_workspace_client_secret_returns_auth_url(monkeypatch, tmp_path):
@@ -134,6 +136,7 @@ def test_connect_google_workspace_client_secret_returns_auth_url(monkeypatch, tm
     assert result["browser_opened"] is True
     assert opened_urls == ["https://accounts.google.com/o/oauth2/auth?client_id=abc"]
     assert "connect-google --auth-code" in result["guidance"]
+    assert "http://localhost:1/" in result["guidance"]
     assert commands == [
         [sys.executable, str(script), "--client-secret", "/tmp/client.json"],
         [sys.executable, str(script), "--auth-url"],

@@ -234,10 +234,14 @@ def _setup_health_cli_parser(parser, commands_module) -> None:
 
     connect_parser = subparsers.add_parser(
         "connect",
-        help="Connect Oura using OAuth.",
+        help="Connect Oura using OAuth; requires an Oura developer app Client ID and Secret.",
     )
-    connect_parser.add_argument("--client-id", dest="client_id")
-    connect_parser.add_argument("--client-secret", dest="client_secret")
+    connect_parser.add_argument("--client-id", dest="client_id", help="Oura developer app Client ID.")
+    connect_parser.add_argument(
+        "--client-secret",
+        dest="client_secret",
+        help="Oura developer app Client Secret; stored in ~/.hermes/.env when supplied.",
+    )
     connect_parser.add_argument("--code")
     connect_parser.add_argument("--state")
     connect_parser.add_argument("--scopes")
@@ -263,12 +267,18 @@ def _setup_health_cli_parser(parser, commands_module) -> None:
     google_parser = subparsers.add_parser(
         "connect-google",
         aliases=["google-connect", "google"],
-        help="Connect Google Workspace using OAuth.",
+        help=(
+            "Connect Google Workspace using OAuth; requires the Google Workspace "
+            "helper and a Desktop OAuth JSON with redirect http://localhost:1/."
+        ),
     )
     google_parser.add_argument(
         "--client-secret",
         dest="client_secret",
-        help="Path to a downloaded Google OAuth client secret JSON file.",
+        help=(
+            "Path to a downloaded Google Cloud Desktop app OAuth JSON file with "
+            "authorized redirect URI http://localhost:1/."
+        ),
     )
     google_parser.add_argument(
         "--auth-code",

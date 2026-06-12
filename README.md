@@ -46,14 +46,17 @@ Restart Hermes after enabling, then run setup:
 hermes health setup
 ```
 
-Setup connects providers, registers the `/health` command family, adds the
-plugin `skills/` directory to `skills.external_dirs`, and installs the scheduled
-sync launcher at `~/.hermes/scripts/health_sync.py`. Setup also registers a
-Hermes no-agent cron job named `health-data-sync` on an `every 6h` schedule.
-`setup` and `status` report whether that cron is registered and whether the
-Hermes gateway appears to be running. If the gateway is stopped, the cron job is
-registered but scheduled syncs will not fire automatically; start or install the
-gateway explicitly with `hermes gateway run` or `hermes gateway install`.
+Setup installs the local database, registers the `/health` command family, adds
+the plugin `skills/` directory to `skills.external_dirs`, and installs the
+scheduled sync launcher at `~/.hermes/scripts/health_sync.py`. It does not log in
+to Oura or Google for you. Use `hermes health connect` for Oura and
+`hermes health connect-google` for Google after setup reports the next action.
+Setup also registers a Hermes no-agent cron job named `health-data-sync` on an
+`every 6h` schedule. `setup` and `status` report whether that cron is registered
+and whether the Hermes gateway appears to be running. If the gateway is stopped,
+the cron job is registered but scheduled syncs will not fire automatically; start
+or install the gateway explicitly with `hermes gateway run` or
+`hermes gateway install`.
 
 ## Oura developer app setup
 
@@ -84,12 +87,28 @@ must create the app in the browser:
    while some auth examples use `spo2`; leaving the OAuth scope parameter blank
    lets Oura request the scopes enabled on the developer app.
 5. Accept the Oura API Agreement and save the application.
-6. Save the Client ID and Client Secret in your Hermes env file or provide them
-   at an interactive prompt. The variable names are:
+6. Save the Client ID and Client Secret in your Hermes env file, or pass them to
+   the connect command once and let the plugin write `~/.hermes/.env` for you.
+   The variable names are:
 
 ```text
 HERMES_OURA_CLIENT_ID
 HERMES_OURA_CLIENT_SECRET
+```
+
+Manual env-file example:
+
+```bash
+mkdir -p ~/.hermes
+printf 'HERMES_OURA_CLIENT_ID="%s"\nHERMES_OURA_CLIENT_SECRET="%s"\n' \
+  '<CLIENT_ID>' '<CLIENT_SECRET>' >> ~/.hermes/.env
+chmod 600 ~/.hermes/.env
+```
+
+One-time CLI storage example:
+
+```bash
+hermes health connect --client-id '<CLIENT_ID>' --client-secret '<CLIENT_SECRET>'
 ```
 
 Then run the short setup/admin flow:
@@ -162,9 +181,45 @@ When WHOOP support is added, the connector should document its exact redirect
 URL, token file, env var names, and setup command in this section before
 release.
 
-## Google Workspace setup
+## Google Workspace / Google OAuth setup
 
-Google Workspace auth is exposed through the health CLI:
+Official docs:
+<https://developers.google.com/workspace/calendar/api/quickstart/python>
+<https://developers.google.com/workspace/gmail/api/quickstart/python>
+
+Google Workspace auth is exposed through the health CLI, but you first need a
+Google Cloud OAuth client JSON. Create it in the browser:
+
+1. Open the Google Cloud console and choose or create a project for personal
+   Hermes use.
+2. Enable the Google Calendar API and Gmail API for that project. The health
+   plugin currently stores calendar and Gmail metadata only; it does not persist
+   message bodies.
+3. Configure the Google Auth platform / OAuth consent screen. For a personal
+   project, a testing app is fine. If the app is `External`, add the Google
+   account you will authorize as a test user.
+4. Go to `Google Auth platform` -> `Clients`, create an OAuth client, and choose
+   `Desktop app` as the application type. Google's Workspace quickstarts use a
+   desktop OAuth client for local Python command-line apps.
+5. Add or confirm the authorized redirect URI `http://localhost:1/`. The Hermes
+   Google Workspace helper uses that loopback redirect for manual code capture.
+6. Download the JSON credentials file. Keep it outside this repository, for
+   example in `~/Downloads` or a password-manager export folder. Do not commit it
+   or paste its contents into `.context`, `.omx`, `docs`, `docker`, or `plans`.
+
+Before connecting, make sure the Hermes Google Workspace productivity skill is
+installed and enabled. The health plugin delegates Google OAuth to that helper
+and expects this script to exist:
+
+```text
+~/.hermes/skills/productivity/google-workspace/scripts/setup.py
+```
+
+A normal Google account is enough for personal calendar/Gmail sync. A Workspace
+admin is only needed if your organization restricts third-party OAuth apps or
+requires admin approval for requested scopes.
+
+Then start the CLI flow:
 
 ```bash
 hermes health connect-google --install-deps --open-browser
@@ -192,6 +247,11 @@ hermes health sync --days 30
 
 Use `hermes health connect-google` with no arguments to check the current state.
 If the client secret is already stored, it prints a fresh authorization URL.
+
+This command delegates OAuth to the existing Hermes Google Workspace skill. That
+shared skill can request broader Workspace scopes than this health plugin
+persists. The health plugin's sync path stores redacted calendar metadata,
+Gmail message metadata/counts, sync status, and provenance in `~/.hermes/health.db`.
 
 ## Sensitive data warning
 
