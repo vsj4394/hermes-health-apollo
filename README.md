@@ -1,10 +1,70 @@
-# Hermes Health Data Plugin
+# Hermes Health Apollo
 
-Standalone Hermes plugin for local health and daily-context data. It is designed
-to live outside Hermes core and install into a Hermes profile as
-`health-data`.
+Local-first health intelligence for Hermes. Apollo connects your wearable data,
+calendar, and communication context so Hermes can answer the questions that sit
+between "how am I doing?" and "what should I do next?"
+
+It installs as the Hermes `health-data` plugin and keeps the sensitive parts on
+your machine: health history, OAuth tokens, calendar context, Gmail metadata,
+and generated analysis all live under your Hermes profile instead of inside this
+repository.
 
 Maintainer: RTK (`apollo@ultima.inc`, X: `@RiverKhan`).
+
+## What it does
+
+Apollo turns personal signals into usable context for an agent:
+
+- Syncs Oura sleep, readiness, activity, stress, heart-rate, workout, session,
+  resilience, SpO2, and tag data into a local SQLite database.
+- Pulls Google Calendar and Gmail metadata through Hermes' Google Workspace
+  helper so workload, meetings, and inbox pressure can be compared with health
+  signals.
+- Gives Hermes tools for recent health state, date ranges, stress days,
+  correlations, heart-rate windows, workouts, sessions, tags, coverage checks,
+  and higher-level analysis plans.
+- Ships a health-coach skill so ordinary Hermes questions automatically use the
+  right health/context tools instead of forcing you into low-level CLI commands.
+- Includes terminal-native visual patterns for meeting stress leaderboards,
+  recovery gates, workload-outcome matrices, day-shape barcodes, baseline drift,
+  sleep debt, stress waterfalls, workout recovery, and coverage trust ledgers.
+- Keeps analysis grounded with coverage checks and privacy guardrails, so thin
+  data, missing syncs, and sensitive identities are surfaced instead of hidden.
+
+Example questions:
+
+```text
+Why was I stressed yesterday?
+What should I prioritize today based on recovery and schedule?
+Did my inbox or meetings line up with my stress this week?
+Show me which meetings created the biggest heart-rate spikes.
+Am I recovered enough for a hard training day tomorrow?
+What changed in my baseline over the last month?
+```
+
+## Why it is useful
+
+Most health dashboards show biometric charts in isolation. Apollo is built for
+the messier questions people actually ask: whether a packed calendar changed
+their stress load, whether poor sleep is making today's plan unrealistic, whether
+training is helping or draining recovery, and whether a trend is backed by
+enough data to trust.
+
+The goal is not medical diagnosis. The goal is a private, local, agent-readable
+memory layer that can help you plan your day, protect recovery, notice workload
+patterns, and turn wearable exhaust into decisions.
+
+## Data model and privacy posture
+
+Apollo is intentionally local-first. The plugin stores data in
+`~/.hermes/health.db`, keeps OAuth material in the active Hermes home, and does
+not commit or publish user data. Calendar and Gmail syncs store redacted
+metadata and counts; Gmail body content, snippets, OAuth secrets, credential
+files, calendar attendee identities, and route/map artifacts are either
+intentionally not persisted or blocked from release by scanner and CI tripwires.
+
+WHOOP support is documented for future connector work, but this release does
+not include a `hermes health connect-whoop` command yet.
 
 ## Install and enable
 
