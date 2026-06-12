@@ -8,12 +8,15 @@ generic display primitives, not routing rules.
 ```text
 Progress: ████████████░░░░░░░░ 60%
 Sleep (7.5h)  ███████████████░░░░░ 75%
+Readiness     ██████████████░░░░░░ 72%
 ```
 
 Guidance:
 - `█` / `░` for simple binary fill
 - keep width stable across rows
 - pair bars with numbers so monochrome logs still work
+- prefer the value-first, labeled-bar shape the user requested
+- use 20-character bars by default unless density forces a smaller width
 
 ## Sparklines
 
