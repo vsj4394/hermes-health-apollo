@@ -97,6 +97,19 @@ def test_setup_installs_fail_soft_launcher_under_hermes_scripts(monkeypatch, tmp
     assert "return result.returncode" in launcher_text
 
 
+def test_health_ask_prompt_keeps_simple_sleep_questions_on_the_direct_path():
+    commands = load_module("commands")
+
+    prompt = commands._health_ask_prompt(
+        "How did I sleep last night?",
+        sync_result={"ran": False, "skipped": "Recent health sync is still fresh."},
+        days=3,
+    )
+
+    assert "Answer using the health-coach skill and health-data tools." in prompt
+    assert "For cross-domain explanations" not in prompt
+
+
 def test_setup_adds_skills_external_dir_and_cron_defensively(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     config = tmp_path / "config.yaml"

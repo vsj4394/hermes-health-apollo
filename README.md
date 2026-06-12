@@ -1,17 +1,75 @@
-# Hermes Health Apollo
+<div align="center">
+  <h1>Hermes Health Apollo</h1>
+  <pre>
+                                         .
+                                         :.
+                              ..         :%.           .           ....
+                              .+.        :@-          .-         .%@@@%*+.
+                               .#=.      .@@.        *#.       .#@@%..
+                                .@@-     .@@+.     -@%.   ...:*@@@@%%%%#*-.
+                                 .%@#.   .@@@.   .*@@-  .:..:-=#@@@@*#@@@@@@%-.
+                     .-=:.        .%@@*. .%*=....:.. =@@@@@@@%+. -@@@%.-@@@@@@%.
+                       .=@@#-..    .%@#-.:=#@@@@@@@@@*=*@@@@@@@@#..@@@%.-@@@@%%%.
+                          :%@@@@+:....:%@@@@%@@@@@@@@@@@@@#+:.*@@%.#@@:.+@@@@@.#.
+                            .%@@@@*.-@@@@@@@+%@@@@@@@+.    .*@@%@@=@-.=@@@@@@:.:.
+                              .*@:.%@@@@@@@@..@@@@-.     :%@%. .   :@@@@@@@-..%-.  .-:
+                                ..@@@#*@@@@%..#@+..:-*#@@@@@# .=%%#=-@@@-.--..+@%=.-@+
+               ..=*########%%%%-.@@@@@-.=@@##%#**%@@@@@@*-#@@.+@@+==++#-%#=:.. .%@@@@=
+                    .:+#@@@@@@%.+@@@@@@-.##: .  .  .  ..=@@@#.*@+     ..-%@@@@@*:*@%-.
+                          .-#%*.#@@@@@@@@-.:*@@@@@@@@@@@@@@@-=@@:         #@@@@@@#..
+                             ...@%-:-==@.=@@@@@@@@@@%.:+##+:#+..  .       -@@@@%%@@:
+                          .+@@*.%@@@#.-*%@@@@@+%%+.   :@*. .-%@@@@@@%-.   .*@@@#.-@+
+                     .-#@@@@@@@.*@@@@@@%-:::=@@@%%%%@@@=   . . ....:@@@@= ..@@@: .@-
+                 .+#@@#+--::...-:@@@@=.:*%@@%#**@@@@@@:     -########%-. .:#@@@#.:.
+                 .       .. .*@@%*@+:#@@@@=:-%@@@@@@@*       .:==-@%.:.   =:@@@@@%*.
+                         .%==@@@@*-%@@@@@-*@@@=*@@@@@*. .        ....     .=@@**+.
+                           :*#+..#@@@@@@@.%..+@.:%=-@@@+                    :*.
+                         .%@%:....*@@@@@@-..*@%.  ..                        ..*.
+                        =@@@%@@@@@@@@@@@@@..+@@@=.                       .=%-.#.
+                      .@@-. .:@@@@@@@@@@@@@@+. ..                        ..++..
+                    .-:.       :%@@@@@@@@@@@@@%###:                    ....*:
+                             .*@@%=-@@@@@@@@@@@@=#@.                 -===+@#.
+                             .@@- -@@@@@@@@@@@-  .##.                  .-=*.
+                             .%* .*@@@@@@@@@@@.    +@=:.                .#+
+                              .=. :@@@@@@@@@@@.     :@@@@@+:.            =-
+                                   .=@@=@@@@@=       .@@@@@@@@@%+..      .+
+                                      .-@@@@@:        .-@@@@@@@@@@@@@%#-:#:
+                                   -%%@@@@@@#.          .*@@@@@@*.........
+                                    ..-=-.@@-             :@@@@@=
+                                         :@#                =@@@-
+                                        .*@:                :@@@-.-:..
+                                     ..:#@+               .#@@@@=.%@@@@@%+:...
+                                  .+@@@@@*               .@@@@@%. .*@@@@@@@@@@@*.
+                               :#@@@@@@@%.              :@@@@@=. ..*@@@@@@@@=..
+                            .#@@@%%%@@%#*=..           .%@@@#. -#@@@@@@@%-.
+                          .*@@@@@@@@@@@@@@@@#-.        +@@@-.+@@@@@@@%=.
+                              .:=*#@@@@@@@@@@@@*.     .#@*.*@@@@@@@+.
+                                      .-#@@@@@@@@#.   .%:=@@@@@@+.
+                                           .:#@@@@@-. ..%@@@@*.
+                                               .=@@@:..@@@+..
+                                                 .:@@.%=..
+                                                   .==
+  </pre>
 
-![Apollo Hermes project mark](assets/apollo-hermes-logo.png)
+  <p>
+    Local-first health intelligence for Hermes. Apollo connects your wearable data,
+    calendar, and communication context so Hermes can answer the questions that sit
+    between "how am I doing?" and "what should I do next?"
+  </p>
 
-Local-first health intelligence for Hermes. Apollo connects your wearable data,
-calendar, and communication context so Hermes can answer the questions that sit
-between "how am I doing?" and "what should I do next?"
+  <p>
+    It installs as the Hermes <code>health-data</code> plugin and keeps the sensitive
+    parts on your machine: health history, OAuth tokens, calendar context, Gmail
+    metadata, and generated analysis all live under your Hermes profile instead of
+    inside this repository.
+  </p>
 
-It installs as the Hermes `health-data` plugin and keeps the sensitive parts on
-your machine: health history, OAuth tokens, calendar context, Gmail metadata,
-and generated analysis all live under your Hermes profile instead of inside this
-repository.
+  <p>
+    <strong>Maintainer:</strong> RTK (<code>apollo@ultima.inc</code>, X: <code>@RiverKhan</code>).
+  </p>
+</div>
 
-Maintainer: RTK (`apollo@ultima.inc`, X: `@RiverKhan`).
+---
 
 ## What it does
 

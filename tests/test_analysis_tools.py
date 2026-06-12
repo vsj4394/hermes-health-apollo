@@ -81,6 +81,29 @@ def test_health_analysis_plan_routes_supported_questions():
     }
 
 
+@pytest.mark.parametrize(
+    ("method_name", "args", "missing_fields"),
+    [
+        ("health_feature_query", {}, ["features", "start", "end"]),
+        ("health_analysis_plan", {}, ["question"]),
+        ("health_analyze", {}, ["analysis_id", "start", "end"]),
+        ("health_analysis_explain", {}, ["analysis_run_id"]),
+    ],
+)
+def test_analysis_tools_return_structured_errors_for_missing_required_args(
+    method_name: str,
+    args: dict,
+    missing_fields: list[str],
+):
+    analysis_tools = load_module("analysis_tools")
+
+    result = getattr(analysis_tools, method_name)(args)
+
+    assert result["ok"] is False
+    assert result["error"] == "Missing required arguments."
+    assert result["missing"] == missing_fields
+
+
 def test_health_analysis_plan_directs_broad_workload_wellbeing_question():
     analysis_tools = load_module("analysis_tools")
 

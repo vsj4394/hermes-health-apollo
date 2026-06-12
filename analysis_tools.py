@@ -78,6 +78,18 @@ HEALTH_ANALYSIS_EXPLAIN_SCHEMA = {
 }
 
 
+def _missing_required_args(args: dict | None, required: list[str]) -> dict | None:
+    payload = args or {}
+    missing = [field for field in required if payload.get(field) in (None, "")]
+    if not missing:
+        return None
+    return {
+        "ok": False,
+        "error": "Missing required arguments.",
+        "missing": missing,
+    }
+
+
 def health_coverage(args: dict) -> dict:
     store.initialize()
     domains = list(args.get("domains") or [])
@@ -145,6 +157,9 @@ def health_event_query(args: dict) -> dict:
 
 
 def health_feature_query(args: dict) -> dict:
+    missing = _missing_required_args(args, ["features", "start", "end"])
+    if missing is not None:
+        return missing
     return feature_engineering.materialize_features(
         feature_keys=list(args["features"]),
         start=str(args["start"]),
@@ -169,6 +184,9 @@ def health_analysis_catalog(_args: dict | None = None) -> dict:
 
 
 def health_analysis_plan(args: dict) -> dict:
+    missing = _missing_required_args(args, ["question"])
+    if missing is not None:
+        return missing
     question = str(args["question"]).strip()
     lowered = question.lower()
     direct = _direct_analysis_route(question, args.get("today"))
@@ -209,6 +227,9 @@ def health_analysis_plan(args: dict) -> dict:
 
 
 def health_analyze(args: dict) -> dict:
+    missing = _missing_required_args(args, ["analysis_id", "start", "end"])
+    if missing is not None:
+        return missing
     analysis_id = str(args["analysis_id"])
     pack = ANALYSIS_PACKS[analysis_id]
     feature_result = feature_engineering.materialize_features(
@@ -247,6 +268,9 @@ def health_analyze(args: dict) -> dict:
 
 
 def health_analysis_explain(args: dict) -> dict:
+    missing = _missing_required_args(args, ["analysis_run_id"])
+    if missing is not None:
+        return missing
     run_id = str(args["analysis_run_id"])
     with sqlite3.connect(store.database_path()) as conn:
         conn.row_factory = sqlite3.Row
