@@ -9,7 +9,7 @@ your machine: health history, OAuth tokens, calendar context, Gmail metadata,
 and generated analysis all live under your Hermes profile instead of inside this
 repository.
 
-Maintainer: RTK (`apollo@ultima.inc`, X: `@RiverKhan`).
+Maintainer: RTK (X: `@RiverKhan`).
 
 ## What it does
 
