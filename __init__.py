@@ -159,6 +159,7 @@ def register(ctx):
     ctx.register_command("health", commands.slash_health)
     _register_cli_command(ctx, "health", commands)
     ctx.register_skill("health-coach", Path(__file__).parent / "skills" / "health-coach")
+    ctx.register_skill("health-visuals", Path(__file__).parent / "skills" / "health-visuals")
 
 
 def _register_degraded(ctx):

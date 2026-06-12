@@ -49,6 +49,8 @@ packages = ["health_data_assets"]
 health_data_assets = [
   "plugin.yaml",
   "skills/health-coach/SKILL.md",
+  "skills/health-visuals/SKILL.md",
+  "skills/health-visuals/references/cli_visual_patterns.md",
 ]
 
 [tool.pytest.ini_options]

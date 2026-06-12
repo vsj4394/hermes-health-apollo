@@ -25,6 +25,10 @@ setup debugging, reproducible eval traces, or forced sync checks.
    `health_calendar_peek` for future schedule questions, `health_sync` only when
    the user asks to refresh, and `health_log_food` only after a food entry has
    been parsed.
+   If the user asks for a chart, dashboard, leaderboard, terminal visual, CLI
+   visual, or a new way to display the data, use the `health-visuals` skill
+   workflow: match an existing CLI visual spec first, and if none fits, draft a
+   new privacy-safe visual spec and mockup.
    For broad meeting/email/calendar versus stress, sleep, readiness, or recovery
    questions, call `health_analysis_plan` first. If it returns `direct_tool`, call
    that tool exactly once and answer from its result; do not insert a separate

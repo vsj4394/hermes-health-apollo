@@ -187,17 +187,18 @@ def _register_from_installed_modules(ctx, base_dir: Path) -> None:
     )
     ctx.register_command("health", commands.slash_health)
     _register_cli_command(ctx, "health", commands)
-    ctx.register_skill("health-coach", _health_coach_skill_dir(base_dir))
+    ctx.register_skill("health-coach", _skill_dir(base_dir, "health-coach"))
+    ctx.register_skill("health-visuals", _skill_dir(base_dir, "health-visuals"))
 
 
-def _health_coach_skill_dir(base_dir: Path) -> Path:
-    repo_skill_dir = base_dir / "skills" / "health-coach"
+def _skill_dir(base_dir: Path, name: str) -> Path:
+    repo_skill_dir = base_dir / "skills" / name
     if repo_skill_dir.exists():
         return repo_skill_dir
     try:
         return Path(
             importlib.resources.files("health_data_assets").joinpath(
-                "skills", "health-coach"
+                "skills", name
             )
         )
     except (ImportError, ModuleNotFoundError, FileNotFoundError):

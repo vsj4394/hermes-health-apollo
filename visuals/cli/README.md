@@ -15,6 +15,23 @@ usable from plain text logs.
 - Keep analysis and rendering separate: analysis produces structured facts,
   renderers turn those facts into terminal output.
 
+## Build Structure
+
+Visuals are meant to be built in layers:
+
+```text
+health_query / health_feature_query / health_analyze
+        -> structured rows, metrics, or analysis results
+        -> visual_specs.json entry declares fields, coverage, and privacy
+        -> renderer produces plain ASCII with optional ANSI color
+        -> health-visuals skill selects an existing spec or drafts a new one
+```
+
+The `health-visuals` skill is the self-writing workflow. When a user asks for a
+visual and no catalog entry fits, it should draft a new `visual_specs.json`
+entry, add a `mockups/<visual_id>.txt` sketch, and describe which analysis/tool
+should supply the structured facts later.
+
 ## Catalog
 
 1. `meeting_stress_leaderboard` ranks meetings or meeting clusters by heart-rate

@@ -87,7 +87,8 @@ def test_register_exposes_health_surfaces_without_core_crash(monkeypatch, tmp_pa
     assert EXPECTED_TOOLS.issubset({name for name, _handler, _kwargs in ctx.tools})
     assert any(name == "health" for name, _handler, _kwargs in ctx.commands)
     assert any(name == "health" for name, _args, _kwargs in ctx.cli_commands)
-    assert any(name == "health-coach" for name, _path, _kwargs in ctx.skills)
+    registered_skills = {name for name, _path, _kwargs in ctx.skills}
+    assert {"health-coach", "health-visuals"}.issubset(registered_skills)
 
     handlers = {name: handler for name, handler, _kwargs in ctx.tools}
     query_result = handlers["health_query"]({"query_type": "recent"})
@@ -226,6 +227,11 @@ def test_wheel_contains_entry_point_assets(tmp_path):
 
     assert "health_data_assets/plugin.yaml" in names
     assert "health_data_assets/skills/health-coach/SKILL.md" in names
+    assert "health_data_assets/skills/health-visuals/SKILL.md" in names
+    assert (
+        "health_data_assets/skills/health-visuals/references/cli_visual_patterns.md"
+        in names
+    )
     for module_name in INSTALLED_MODULES:
         assert module_name in names
     assert "health-data = health_data_entry\n" in entry_points
