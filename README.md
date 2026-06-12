@@ -1,5 +1,7 @@
 # Hermes Health Apollo
 
+![Apollo Hermes project mark](assets/apollo-hermes-logo.png)
+
 Local-first health intelligence for Hermes. Apollo connects your wearable data,
 calendar, and communication context so Hermes can answer the questions that sit
 between "how am I doing?" and "what should I do next?"
