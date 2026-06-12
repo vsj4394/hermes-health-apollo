@@ -19,16 +19,21 @@ when the current catalog does not fit the user's moment.
      `references/cli_visual_patterns.md`.
 3. If a catalog visual fits, use it. Query data with existing health tools before
    filling values: `health_coverage`, `health_query`, `health_feature_query`,
-   `health_calendar_peek`, `health_analysis_plan`, or `health_analyze`.
+   `health_event_query`, `health_calendar_peek`, `health_analysis_plan`, or
+   `health_analyze`.
 4. If no visual fits, synthesize a new visual:
    - Name it in `snake_case`.
+   - Add trigger phrases that would route similar future requests to it.
    - State purpose, required data, minimum coverage, privacy default, and caveat.
    - Render a plain-text mockup that works without color.
    - Include `safe` and `detail` privacy modes. Default to `safe`.
+   - If a needed derived field does not exist yet, label it unavailable or
+     proposed instead of inventing values.
    - Say what tool or analysis pack should produce the structured facts later.
 5. If working in the repo, save the new candidate under `visuals/cli/`:
    - Add or update a `visual_specs.json` entry.
    - Add `mockups/<visual_id>.txt`.
+   - Update `visuals/cli/README.md` when the catalog list changes.
    - Add tests or update `tests/test_visual_catalog.py`.
 
 ## Design Rules
@@ -40,6 +45,9 @@ when the current catalog does not fit the user's moment.
 - Use "associated with" rather than causal language.
 - Redact event titles, attendees, email addresses, email subjects, food text,
   locations, and credential paths by default.
+- Even in `detail` mode, do not display raw third-party names or raw meeting
+  titles in biometric stress, heart-rate, or ranking visuals. Use explicit user
+  confirmation plus a non-shareable local-only warning before considering it.
 - Never print OAuth tokens, client secrets, raw database exports, or local private
   paths.
 
@@ -48,6 +56,7 @@ when the current catalog does not fit the user's moment.
 ```text
 VISUAL: <title>
 id: <snake_case_id>
+triggers: <phrases that should route future requests here>
 purpose: <why this is useful now>
 data: <tables/tools/features needed>
 minimum coverage: <threshold>

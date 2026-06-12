@@ -9,7 +9,7 @@ dbpm   z     elev  meeting cluster        attendees
 PER-PERSON       ranked by marginal effect
 
 attendee        n   naive   ridge  rel    calm 0 stress
-role_pm         9   9.15    5.47   high        |#####   prime suspect
+role_pm         9   9.15    5.47   high        |#####   higher association
 role_eng_a     10  -1.99    1.30   high        |#       slight lift
 role_manager   14   1.97    0.30   high        |        neutral
 role_senior     9  -7.52   -3.20   high    ###|        calming

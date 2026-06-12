@@ -12,3 +12,7 @@ Terminal health visuals are decision aids, not diagnosis.
   or previous-period comparisons.
 - Keep sharing mode conservative: no raw people names, emails, event titles,
   food descriptions, locations, or health exports.
+- For biometric stress, heart-rate, or ranking visuals, do not show raw
+  third-party names or raw meeting titles even when the user asks for detail.
+  Use pseudonyms, role labels, or buckets unless the user gives explicit
+  local-only confirmation and understands it should not be shared.
