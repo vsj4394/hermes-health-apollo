@@ -51,8 +51,10 @@ health_data_assets = [
   "skills/health-coach/SKILL.md",
   "skills/health-visuals/SKILL.md",
   "skills/health-visuals/references/cli_visual_patterns.md",
+  "skills/health-visuals/references/terminal_ascii_patterns.md",
+  "skills/health-visuals/references/ansi_visual_patterns.md",
+  "skills/health-visuals/references/ansi_color_implementation_plan.md",
   "visuals/cli/README.md",
-  "visuals/cli/visual_specs.json",
   "visuals/cli/mockups/*.txt",
   "visuals/cli/prompts/*.md",
 ]

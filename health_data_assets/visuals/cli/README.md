@@ -22,16 +22,16 @@ Visuals are meant to be built in layers:
 ```text
 health_query / health_feature_query / health_analyze
         -> structured rows, metrics, or analysis results
-        -> visual_specs.json entry declares fields, coverage, and privacy
+        -> health-visuals skill + references declare intent, privacy, and layout
         -> renderer produces plain ASCII with optional ANSI color
         -> health-visuals skill uses prompt-level semantic routing
 ```
 
 The `health-visuals` skill is the self-writing workflow. It should answer on the
-first pass: use an existing catalog entry when the semantic intent fits, or
-draft a new visual spec, `mockups/<visual_id>.txt` sketch, and analysis/tool
-handoff when the request is novel. Keep routing examples in the skill prompt and
-reference notes, not in `visual_specs.json`.
+first pass: use an existing mockup/pattern when the semantic intent fits, or
+draft a new `mockups/<visual_id>.txt` sketch and analysis/tool handoff when the
+request is novel. Keep routing examples and layout patterns in the skill prompt
+and reference notes.
 
 ## Catalog
 
@@ -53,10 +53,23 @@ reference notes, not in `visual_specs.json`.
 9. `stress_waterfall` shows daily stress accumulation and recovery resets.
 10. `workout_recovery_lane` compares workout timing/intensity with next-day
     readiness.
-11. `chronotype_planner` turns tomorrow's first meeting and recent sleep need
+11. `workout_streak_ladder` shows workout streaks, missed routine days, and
+    weekly completion.
+12. `strain_readiness_ribbon` compares workout intensity and same-day strain
+    with next-morning readiness.
+13. `training_mix_board` shows cardio, strength, mobility, and recovery balance
+    across a recent window.
+14. `chronotype_planner` turns tomorrow's first meeting and recent sleep need
     into a target bedtime.
-12. `coverage_trust_ledger` shows whether Oura, calendar, email, and food data
+15. `coverage_trust_ledger` shows whether Oura, calendar, email, and food data
     are complete enough to trust a result.
 
-See `visual_specs.json` for structured fields and `mockups/` for terminal
-sketches.
+The source of truth is the `health-visuals` skill and its reference files.
+`mockups/` contains the terminal sketches.
+
+## ANSI Preview Layer
+
+- `mockups/ansi_preview_gallery.txt` replays the whole catalog with symbolic color tokens like `[G2]`, `[R2]`, and `[N0]`.
+- `skills/health-visuals/references/ansi_visual_patterns.md` defines the semantic token palette for colored terminal previews.
+- `skills/health-visuals/references/terminal_ascii_patterns.md` collects reusable bars, sparklines, tables, dashboards, and grids that can be reused across many Apollo visuals.
+- `skills/health-visuals/references/ansi_color_implementation_plan.md` captures the renderer rollout plan for real ANSI output.

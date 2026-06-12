@@ -1,0 +1,19 @@
+TRAINING MIX BOARD   last 14 days   privacy: safe
+
+type         count   mins   intensity mix
+cardio         4     172    low ##  med ##  high .
+strength       3     145    low .   med #   high ##
+mobility       2      48    low ##  med .   high .
+recovery       3      96    low ### med .   high .
+
+weekly share
+cardio     37%   [#######.....]
+strength   31%   [######......]
+mobility   10%   [##..........]
+recovery   22%   [####........]
+
+readiness follow-through:
+- cardio + strength cluster: next-day readiness median 71
+- recovery / mobility days: next-day readiness median 82
+
+note: use to spot over-indexing on hard work versus recovery

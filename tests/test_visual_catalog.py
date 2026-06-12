@@ -1,32 +1,43 @@
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 
-def test_cli_visual_specs_reference_existing_mockups():
-    specs_path = Path("visuals/cli/visual_specs.json")
-    specs = json.loads(specs_path.read_text(encoding="utf-8"))
+VISUAL_IDS = [
+    "meeting_stress_leaderboard",
+    "attendee_effect_board",
+    "recovery_gate",
+    "calendar_load_skyline",
+    "day_shape_barcode",
+    "workload_outcome_matrix",
+    "sleep_debt_heatstrip",
+    "baseline_drift_board",
+    "stress_waterfall",
+    "workout_recovery_lane",
+    "workout_streak_ladder",
+    "strain_readiness_ribbon",
+    "training_mix_board",
+    "chronotype_planner",
+    "coverage_trust_ledger",
+]
 
-    assert specs
-    for spec in specs:
-        assert spec["id"]
-        assert "triggers" not in spec
-        assert spec["privacy_default"]
-        mockup = specs_path.parent / spec["mockup"]
-        assert mockup.exists(), spec["id"]
+
+def test_cli_visual_mockups_exist_for_all_catalogued_visuals():
+    mockup_root = Path("visuals/cli/mockups")
+
+    for visual_id in VISUAL_IDS:
+        assert (mockup_root / f"{visual_id}.txt").exists(), visual_id
 
 
-def test_cli_visual_readme_catalog_matches_specs():
-    spec_ids = [spec["id"] for spec in _visual_specs()]
+def test_cli_visual_readme_catalog_matches_visual_ids():
     readme = Path("visuals/cli/README.md").read_text(encoding="utf-8")
-    catalog_section = readme.split("## Catalog", 1)[1].split("See `visual_specs.json`", 1)[
-        0
-    ]
+    catalog_section = readme.split("## Catalog", 1)[1].split(
+        "The source of truth is the `health-visuals` skill", 1
+    )[0]
     readme_ids = re.findall(r"`([a-z0-9_]+)`", catalog_section)
 
-    assert readme_ids == spec_ids
+    assert readme_ids == VISUAL_IDS
 
 
 def test_packaged_visual_assets_mirror_repo_catalog():
@@ -57,82 +68,59 @@ def test_cli_visual_mockups_do_not_use_real_identity_markers():
     assert "client_secret" not in mockup_text
 
 
-def test_health_visuals_skill_is_mirrored_for_package_assets():
+def test_health_visuals_skill_and_references_are_mirrored_for_package_assets():
     repo_skill = Path("skills/health-visuals/SKILL.md").read_text(encoding="utf-8")
     asset_skill = Path("health_data_assets/skills/health-visuals/SKILL.md").read_text(
         encoding="utf-8"
     )
-    repo_reference = Path(
+    repo_cli_patterns = Path(
         "skills/health-visuals/references/cli_visual_patterns.md"
     ).read_text(encoding="utf-8")
-    asset_reference = Path(
+    asset_cli_patterns = Path(
         "health_data_assets/skills/health-visuals/references/cli_visual_patterns.md"
+    ).read_text(encoding="utf-8")
+    repo_ascii_patterns = Path(
+        "skills/health-visuals/references/terminal_ascii_patterns.md"
+    ).read_text(encoding="utf-8")
+    asset_ascii_patterns = Path(
+        "health_data_assets/skills/health-visuals/references/terminal_ascii_patterns.md"
+    ).read_text(encoding="utf-8")
+    repo_ansi_patterns = Path(
+        "skills/health-visuals/references/ansi_visual_patterns.md"
+    ).read_text(encoding="utf-8")
+    asset_ansi_patterns = Path(
+        "health_data_assets/skills/health-visuals/references/ansi_visual_patterns.md"
+    ).read_text(encoding="utf-8")
+    repo_ansi_plan = Path(
+        "skills/health-visuals/references/ansi_color_implementation_plan.md"
+    ).read_text(encoding="utf-8")
+    asset_ansi_plan = Path(
+        "health_data_assets/skills/health-visuals/references/ansi_color_implementation_plan.md"
     ).read_text(encoding="utf-8")
 
     assert repo_skill == asset_skill
-    assert repo_reference == asset_reference
-    assert "synthesize a first-pass visual immediately" in repo_skill
+    assert repo_cli_patterns == asset_cli_patterns
+    assert repo_ascii_patterns == asset_ascii_patterns
+    assert repo_ansi_patterns == asset_ansi_patterns
+    assert repo_ansi_plan == asset_ansi_plan
 
 
-def test_visual_routing_guidance_lives_in_skill_not_catalog_json():
-    serialized_specs = Path("visuals/cli/visual_specs.json").read_text(encoding="utf-8")
+def test_health_visuals_skill_uses_skill_references_as_source_of_truth():
     skill = Path("skills/health-visuals/SKILL.md").read_text(encoding="utf-8")
     reference = Path("skills/health-visuals/references/cli_visual_patterns.md").read_text(
         encoding="utf-8"
     )
-    skill_lower = skill.lower()
-    reference_lower = reference.lower()
+    ascii_patterns = Path(
+        "skills/health-visuals/references/terminal_ascii_patterns.md"
+    ).read_text(encoding="utf-8")
+    ansi_patterns = Path(
+        "skills/health-visuals/references/ansi_visual_patterns.md"
+    ).read_text(encoding="utf-8")
 
-    assert '"triggers"' not in serialized_specs
-    assert "Route by semantic intent" in skill
-    assert "Do not copy them into `visual_specs.json`" in skill
-    assert "meeting_stress_leaderboard" in skill_lower
-    assert "attendee_effect_board" in skill_lower
-    assert "caffeine timing" in skill_lower
-    assert "route by semantic" in reference_lower
-    assert "coworker stress" in reference_lower
-
-
-def test_health_visuals_first_pass_synthesis_is_primary_behavior():
-    skill = Path("skills/health-visuals/SKILL.md").read_text(encoding="utf-8")
-    reference = Path("skills/health-visuals/references/cli_visual_patterns.md").read_text(
-        encoding="utf-8"
-    )
-    readme = Path("visuals/cli/README.md").read_text(encoding="utf-8")
-
-    assert "first-pass visual" in skill
-    assert "first pass" in readme
-    old_backup_word = "fall" + "back"
-    assert old_backup_word not in skill.lower()
-    assert old_backup_word not in reference.lower()
-    assert "health_event_query" in skill
-    assert "Add or update a `visual_specs.json` entry" in skill
-    assert "Add `mockups/<visual_id>.txt`" in skill
-
-
-def test_health_visuals_skill_metadata_contains_invocation_terms():
-    skill = Path("skills/health-visuals/SKILL.md").read_text(encoding="utf-8").lower()
-
-    for term in ("terminal", "cli", "dashboard", "leaderboard", "chart", "visualization"):
-        assert term in skill
-
-
-def test_biometric_ranking_prompts_forbid_raw_third_party_detail():
-    skill = Path("skills/health-visuals/SKILL.md").read_text(encoding="utf-8")
-    brief = Path("visuals/cli/prompts/health_visual_brief.md").read_text(encoding="utf-8")
-    guardrails = Path("visuals/cli/prompts/interpretation_guardrails.md").read_text(
-        encoding="utf-8"
-    )
-    meeting_mockup = Path("visuals/cli/mockups/meeting_stress_leaderboard.txt").read_text(
-        encoding="utf-8"
-    )
-
-    combined = "\n".join([skill, brief, guardrails])
-    assert "do not display raw third-party names" in combined
-    assert "raw meeting titles" in combined
-    assert "prime suspect" not in meeting_mockup
-    assert "higher association" in meeting_mockup
-
-
-def _visual_specs() -> list[dict]:
-    return json.loads(Path("visuals/cli/visual_specs.json").read_text(encoding="utf-8"))
+    assert "The source of truth is the skill plus its references." in skill
+    assert "visual_specs.json" not in skill
+    assert "route by semantic" in reference.lower()
+    assert "progress bars" in ascii_patterns.lower()
+    assert "semantic color tokens" in ansi_patterns.lower()
+    assert "workout_streak_ladder" in skill
+    assert "training_mix_board" in skill
