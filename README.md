@@ -424,28 +424,22 @@ Plan B analysis tools when available: `health_analysis_plan`, `health_coverage`,
 
 ### Dev, release, and Hermes homes
 
-Keep two source checkouts with different jobs:
+This repository is now the canonical Apollo checkout. Hermes installs the
+plugin into one active Hermes home at a time, normally
+`~/.hermes/plugins/health-data`.
 
-- Use your normal development workspace for branches, experiments, Conductor
-  `.context`, OMX state, and private planning notes. Do not publish that Git
-  history.
-- Use the clean public-candidate checkout for release smoke tests and for the
-  repository that will become public.
-
-Hermes installs this plugin into one active Hermes home at a time, normally
-`~/.hermes/plugins/health-data`. Use `HERMES_HOME` to keep dev testing separate
-from daily use:
+If you want a separate development profile, use `HERMES_HOME` to isolate local
+data, OAuth tokens, and the installed plugin copy:
 
 ```bash
-# Daily/live profile: install from the clean public-candidate checkout.
-cd /path/to/hermes-health-apollo-public
+# Daily/live profile: install from this repo into ~/.hermes
+cd /path/to/hermes-health-apollo
 HERMES_HOME="$HOME/.hermes" make install-local
 HERMES_HOME="$HOME/.hermes" make verify-local-install
 HERMES_HOME="$HOME/.hermes" hermes health status
 
-# Dev profile: install from your working checkout and test real integrations
-# without touching the daily/live plugin copy or database.
-cd /path/to/hermes-health-apollo-dev
+# Dev profile: same repo, separate Hermes home
+cd /path/to/hermes-health-apollo
 HERMES_HOME="$HOME/.hermes-dev" make install-local
 HERMES_HOME="$HOME/.hermes-dev" hermes health setup
 HERMES_HOME="$HOME/.hermes-dev" hermes health connect
@@ -525,14 +519,14 @@ scan, full unit tests, Python compile checks, package artifact inspection, and a
 clean snapshot export scan. Run the full local unit suite with
 `python -m pytest` before publishing a release.
 
-## Publishing a clean public snapshot
+## Preparing a clean export
 
-Do not publish this Conductor workspace by pushing its existing `.git`
-directory, using `git clone --mirror`, or using `git push --mirror`. Local
-development history can contain Conductor checkpoints, OMX logs, old private
-planning docs, and other refs that should not become public.
+The repository itself is public now, so ordinary changes should be published by
+committing and pushing to `main` or via pull request.
 
-Publish from a clean tracked-file snapshot instead:
+If you ever need a sanitized downstream export or one-off clean snapshot, do not
+use `git clone --mirror` or `git push --mirror`. Export only the current tracked
+`HEAD` instead:
 
 ```bash
 python scripts/secret_scan.py
@@ -541,11 +535,11 @@ uv run --with build python scripts/release_safety.py
 scripts/create_public_snapshot.sh ../hermes-health-data-public
 cd ../hermes-health-data-public
 git commit -m "Release Hermes health data plugin"
-git remote add origin <PUBLIC_REPO_URL>
+git remote add origin <TARGET_REPO_URL>
 git push -u origin main
 ```
 
 The snapshot script refuses to run with uncommitted changes, exports only the
 current committed `HEAD` with `git archive`, re-runs the secret scan inside the
 snapshot, and initializes a brand-new Git repository. This keeps private refs,
-ignored folders, and historical `docs/` or `.omx/` blobs out of the public repo.
+ignored folders, and historical local-only blobs out of the exported repo.
