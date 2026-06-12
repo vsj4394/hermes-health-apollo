@@ -355,6 +355,42 @@ Plan B analysis tools when available: `health_analysis_plan`, `health_coverage`,
 
 ## Development and verification
 
+### Dev, release, and Hermes homes
+
+Keep two source checkouts with different jobs:
+
+- Use your normal development workspace for branches, experiments, Conductor
+  `.context`, OMX state, and private planning notes. Do not publish that Git
+  history.
+- Use the clean public-candidate checkout for release smoke tests and for the
+  repository that will become public.
+
+Hermes installs this plugin into one active Hermes home at a time, normally
+`~/.hermes/plugins/health-data`. Use `HERMES_HOME` to keep dev testing separate
+from daily use:
+
+```bash
+# Daily/live profile: install from the clean public-candidate checkout.
+cd /path/to/hermes-health-apollo-public
+HERMES_HOME="$HOME/.hermes" make install-local
+HERMES_HOME="$HOME/.hermes" make verify-local-install
+HERMES_HOME="$HOME/.hermes" hermes health status
+
+# Dev profile: install from your working checkout and test real integrations
+# without touching the daily/live plugin copy or database.
+cd /path/to/hermes-health-apollo-dev
+HERMES_HOME="$HOME/.hermes-dev" make install-local
+HERMES_HOME="$HOME/.hermes-dev" hermes health setup
+HERMES_HOME="$HOME/.hermes-dev" hermes health connect
+HERMES_HOME="$HOME/.hermes-dev" hermes health connect-google --open-browser
+HERMES_HOME="$HOME/.hermes-dev" hermes health sync --days 7
+HERMES_HOME="$HOME/.hermes-dev" make verify-local-install
+```
+
+The dev profile has its own `health.db`, OAuth files, installed plugin copy,
+and sync launcher under `~/.hermes-dev`. Keep both Hermes homes outside the
+repository and never commit their contents.
+
 After local changes, refresh the active Hermes plugin copy and verify drift:
 
 ```bash
