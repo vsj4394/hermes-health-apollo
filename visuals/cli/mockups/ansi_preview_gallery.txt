@@ -1,5 +1,5 @@
 APOLLO ANSI VISUAL GALLERY
-palette: [G3]strong positive[RESET] [G2]positive[RESET] [Y1]caution[RESET] [R1]elevated[RESET] [R2]high risk[RESET] [N0]missing/hidden[RESET]
+palette: [G3]strong positive[RESET] [G2]positive[RESET] [Y2]warm caution[RESET] [Y1]caution[RESET] [O1]orange warning[RESET] [O2]deep orange[RESET] [R1]elevated[RESET] [R2]high risk[RESET] [N0]missing/hidden[RESET]
 
 ==============================================================================
 meeting_stress_leaderboard
@@ -29,10 +29,10 @@ recovery_gate
 ==============================================================================
 [B1]RECOVERY GATE[RESET]   Fri 2026-06-12
 
-readiness   [G2]72[RESET]  [G2][=======---][RESET] ok
-sleep       [G3]81[RESET]  [G3][========--][RESET] good
-meetings   [R2]330m[RESET] [R2][!!!!!!!!--][RESET] heavy
-email load  [Y1]med[RESET] [Y1][=====-----][RESET]
+readiness    [G2]72[RESET]   [G2]██████████████[RESET][N0]░░░░░░[RESET]  ok
+sleep        [G3]81[RESET]   [G3]████████████████[RESET][N0]░░░░[RESET]  good
+meetings    [R2]330m[RESET]  [R2]████████████████[RESET][N0]░░░░[RESET]  heavy
+email load   [Y2]med[RESET]  [Y2]██████████[RESET][N0]░░░░░░░░░░[RESET]  moderate
 
 verdict: [Y1]protect 14:00-16:00 and avoid hard workout after the final meeting[RESET]
 
@@ -76,11 +76,11 @@ sleep_debt_heatstrip
 [B1]SLEEP DEBT HEATSTRIP[RESET]   rolling 14 nights
 
 date        need   slept   debt   bedtime drift     readiness
-May 30      8h10   [G2]7h50[RESET]    [G1]-20m[RESET]   on time           [G2]82[RESET]
-May 31      8h05   [Y1]6h42[RESET]    [R1]-83m[RESET]   late +52m         [Y1]68[RESET]
-Jun 01      8h15   [Y1]7h05[RESET]    [R1]-70m[RESET]   late +35m         [Y1]71[RESET]
-Jun 02      8h00   [G3]8h12[RESET]    [G2]+12m[RESET]   on time           [G3]86[RESET]
-Jun 03      8h20   [Y1]6h58[RESET]    [R1]-82m[RESET]   late +61m         [R1]64[RESET]
+May 30      8h10   [G2]7h50[RESET]    [G1]-20m[RESET]   on time           [G2]82[RESET]   [G2]████████████████[RESET][N0]░░░░[RESET]
+May 31      8h05   [Y2]6h42[RESET]    [O1]-83m[RESET]   late +52m         [Y2]68[RESET]   [Y2]████████████[RESET][N0]░░░░░░░░[RESET]
+Jun 01      8h15   [Y1]7h05[RESET]    [O1]-70m[RESET]   late +35m         [Y1]71[RESET]   [Y1]██████████████[RESET][N0]░░░░░░[RESET]
+Jun 02      8h00   [G3]8h12[RESET]    [G2]+12m[RESET]   on time           [G3]86[RESET]   [G3]█████████████████[RESET][N0]░░░[RESET]
+Jun 03      8h20   [Y2]6h58[RESET]    [O2]-82m[RESET]   late +61m         [R1]64[RESET]   [R1]███████████[RESET][N0]░░░░░░░░░[RESET]
 
 strip: [G1].[RESET] [R1]![RESET] [R1]![RESET] [G1].[RESET] [R1]![RESET]
 
@@ -90,10 +90,10 @@ baseline_drift_board
 [B1]BASELINE DRIFT BOARD[RESET]   recent 14d vs prior 28d
 
 metric                  prior      recent     delta      state
-resting HR              51 bpm     54 bpm     [R1]+3 bpm[RESET]     higher
+resting HR              51 bpm     54 bpm     [O1]+3 bpm[RESET]     higher
 HRV                     72 ms      64 ms      [R1]-8 ms[RESET]      lower
 SpO2                    97.2%      97.0%      [N0]-0.2%[RESET]      stable
-sleep score             81         76         [Y1]-5[RESET]         softer
+sleep score             81         76         [Y2]-5[RESET]         softer
 
 combined signal: [Y1]recovery baseline slightly strained[RESET]
 
@@ -118,10 +118,10 @@ workout_recovery_lane
 [B1]WORKOUT RECOVERY LANE[RESET]   last 30d
 
 day        workout          intensity   same-day strain   next readiness
-Mon 01     run              [Y1]medium[RESET]      [Y1]12.4[RESET]            [G2]78[RESET]
-Thu 04     strength         [R1]high[RESET]        [R1]15.8[RESET]            [Y1]69[RESET]
-Sun 07     walk             [G1]low[RESET]          [G1]5.1[RESET]            [G3]84[RESET]
-Tue 09     intervals        [R2]high[RESET]        [R2]17.2[RESET]            [R1]65[RESET]
+Mon 01     run              [Y2]medium[RESET]      [Y2]12.4[RESET]            [G2]78[RESET]   [G2]███████████████[RESET][N0]░░░░░[RESET]
+Thu 04     strength         [O1]high[RESET]        [O1]15.8[RESET]            [Y2]69[RESET]   [Y2]████████████[RESET][N0]░░░░░░░░[RESET]
+Sun 07     walk             [G1]low[RESET]          [G1]5.1[RESET]            [G3]84[RESET]   [G3]█████████████████[RESET][N0]░░░[RESET]
+Tue 09     intervals        [R2]high[RESET]        [R2]17.2[RESET]            [R1]65[RESET]   [R1]███████████[RESET][N0]░░░░░░░░░[RESET]
 
 ==============================================================================
 chronotype_planner
@@ -143,11 +143,11 @@ coverage_trust_ledger
 ==============================================================================
 [B1]DATA COVERAGE[RESET]   last 30d
 
-oura daily       [G2]29/30[RESET]  [G2][#########.][RESET]  partial: 1 day
-heart rate       [Y1]22/30[RESET]  [Y1][#######...][RESET]  gaps: 8 days
-calendar         [G3]30/30[RESET]  [G3][##########][RESET]
-email            [Y1]21/30[RESET]  [Y1][#######...][RESET]  metadata only
-food             [R1] 6/30[RESET]  [R1][##........][RESET]  sparse
+oura daily       [G2]29/30[RESET]  [G2]███████████████████[RESET][N0]░[RESET]   partial: 1 day
+heart rate       [Y2]22/30[RESET]  [Y2]██████████████[RESET][N0]░░░░░░[RESET]   gaps: 8 days
+calendar         [G3]30/30[RESET]  [G3]████████████████████[RESET]      full
+email            [Y1]21/30[RESET]  [Y1]██████████████[RESET][N0]░░░░░░[RESET]   metadata only
+food             [O1] 6/30[RESET]  [O1]████[RESET][N0]░░░░░░░░░░░░░░[RESET] sparse
 
 ==============================================================================
 workout_streak_ladder
@@ -155,9 +155,9 @@ workout_streak_ladder
 [B1]WORKOUT STREAK LADDER[RESET]   last 21 days
 
 week       target   done   streak   misses
-wk-3         4      [Y1]3[RESET]    [Y1]2d[RESET]     Tue
+wk-3         4      [Y2]3[RESET]    [Y2]2d[RESET]     Tue
 wk-2         4      [G3]4[RESET]    [G2]5d[RESET]     --
-wk-1         4      [R1]2[RESET]    [R1]1d[RESET]     Wed, Fri
+wk-1         4      [O1]2[RESET]    [O1]1d[RESET]     Wed, Fri
 this wk      4      [G2]3[RESET]    [G2]3d[RESET]     Thu
 
 ladder
@@ -172,8 +172,8 @@ strain_readiness_ribbon
 [B1]STRAIN READINESS RIBBON[RESET]   rolling 10 workouts
 
 date        workout        intensity   same-day strain   next readiness
-Jun 02      strength       [R1]high[RESET]        [R1]15.4[RESET]            [Y1]68[RESET]
-Jun 04      run            [Y1]medium[RESET]      [Y1]11.8[RESET]            [G2]79[RESET]
+Jun 02      strength       [O1]high[RESET]        [O1]15.4[RESET]            [Y2]68[RESET]
+Jun 04      run            [Y2]medium[RESET]      [Y2]11.8[RESET]            [G2]79[RESET]
 Jun 06      mobility       [G1]low[RESET]          [G1]4.2[RESET]            [G3]84[RESET]
 Jun 08      intervals      [R2]high[RESET]        [R2]17.1[RESET]            [R1]65[RESET]
 Jun 10      walk           [G1]low[RESET]          [G1]5.5[RESET]            [G2]82[RESET]
@@ -184,13 +184,13 @@ training_mix_board
 [B1]TRAINING MIX BOARD[RESET]   last 14 days
 
 type         count   mins   intensity mix
-cardio        [G2]4[RESET]   172    [G1]low ##[RESET]  [Y1]med ##[RESET]  [N0]high .[RESET]
-strength      [Y1]3[RESET]   145    [N0]low .[RESET]   [Y1]med #[RESET]   [R1]high ##[RESET]
+cardio        [G2]4[RESET]   172    [G1]low ██[RESET]  [Y2]med ██[RESET]  [N0]high ·[RESET]
+strength      [Y2]3[RESET]   145    [N0]low ·[RESET]   [Y2]med █[RESET]   [O1]high ██[RESET]
 mobility      [G1]2[RESET]    48    [G2]low ##[RESET]  [N0]med .[RESET]   [N0]high .[RESET]
 recovery      [G2]3[RESET]    96    [G3]low ###[RESET] [N0]med .[RESET]   [N0]high .[RESET]
 
 weekly share
 cardio     [G2]37%[RESET]   [G2][#######.....][RESET]
-strength   [Y1]31%[RESET]   [Y1][######......][RESET]
+strength   [Y2]31%[RESET]   [Y2][######......][RESET]
 mobility   [G1]10%[RESET]   [G1][##..........][RESET]
 recovery   [G2]22%[RESET]   [G2][####........][RESET]
