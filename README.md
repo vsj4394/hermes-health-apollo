@@ -378,6 +378,10 @@ The default scan checks git-tracked files and blocks private workspace paths
 even if they were force-added. Private planning/runtime areas such as `.context`,
 `.omx`, `docs`, `docker`, `plans`, `.private`, `.local`, and `scratch` are
 ignored for normal Git usage and rejected by the scanner if tracked.
+It also blocks local data artifacts that are easy to leak by accident:
+databases, logs, source maps, map/location exports, route files (`.gpx`,
+`.kml`, `.fit`, `.tcx`, `.geojson`, `.mbtiles`, and route/location JSON), and
+credential/token JSON files.
 
 For a clean snapshot or raw directory copy audit, run:
 
@@ -413,8 +417,10 @@ make health-eval-baseline
 ```
 
 The current CI workflow runs the secret tripwire before deterministic health
-evals on push. Run the full local unit suite with `python -m pytest` before
-publishing a release.
+evals on push. It also runs an all-files scan, a TruffleHog verified-secret
+scan, full unit tests, Python compile checks, package artifact inspection, and a
+clean snapshot export scan. Run the full local unit suite with
+`python -m pytest` before publishing a release.
 
 ## Publishing a clean public snapshot
 
@@ -428,6 +434,7 @@ Publish from a clean tracked-file snapshot instead:
 ```bash
 python scripts/secret_scan.py
 uv run --extra dev python -m pytest tests/test_secret_scan.py tests/test_context_commands.py tests/test_visual_catalog.py tests/test_register_contract.py
+uv run --with build python scripts/release_safety.py
 scripts/create_public_snapshot.sh ../hermes-health-data-public
 cd ../hermes-health-data-public
 git commit -m "Release Hermes health data plugin"

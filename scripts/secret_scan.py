@@ -56,6 +56,15 @@ BLOCKED_PATH_PATTERNS = (
     "*.kmz",
     "*.fit",
     "*.tcx",
+    "*.mbtiles",
+    "*.osm",
+    "*.pbf",
+    "*location*.json",
+    "*locations*.json",
+    "*route*.json",
+    "*routes*.json",
+    "*timeline*.json",
+    "*takeout*.json",
     "*client_secret*.json",
     "*credential*.json",
     "*credentials*.json",
@@ -168,10 +177,11 @@ def is_text(data: bytes) -> bool:
 
 
 def path_matches(patterns: Iterable[str], path: Path) -> str | None:
-    normalized = path.as_posix()
-    name = path.name
+    normalized = path.as_posix().casefold()
+    name = path.name.casefold()
     for pattern in patterns:
-        if fnmatch(name, pattern) or fnmatch(normalized, pattern):
+        folded_pattern = pattern.casefold()
+        if fnmatch(name, folded_pattern) or fnmatch(normalized, folded_pattern):
             return pattern
     return None
 

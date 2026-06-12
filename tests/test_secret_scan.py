@@ -71,17 +71,26 @@ def test_secret_scan_allows_public_project_contact(tmp_path):
 
 def test_secret_scan_blocks_map_and_location_exports(tmp_path):
     secret_scan = load_secret_scan()
-    source_map = tmp_path / "bundle.js.map"
-    route = tmp_path / "morning-run.gpx"
-    source_map.write_text("{}", encoding="utf-8")
-    route.write_text("<gpx></gpx>", encoding="utf-8")
-
-    findings = secret_scan.scan([source_map, route])
-
-    assert [(finding.path.endswith(".map"), finding.kind) for finding in findings] == [
-        (True, "blocked_path"),
-        (False, "blocked_path"),
+    fixtures = [
+        tmp_path / "bundle.JS.MAP",
+        tmp_path / "morning-run.GPX",
+        tmp_path / "trail.KML",
+        tmp_path / "ride.FIT",
+        tmp_path / "workout.TCX",
+        tmp_path / "offline-map.MBTILES",
+        tmp_path / "LOCATION-HISTORY.JSON",
+        tmp_path / "cycling-ROUTES.json",
+        tmp_path / "Google-Takeout.JSON",
     ]
+    for fixture in fixtures:
+        if fixture.suffix.casefold() == ".mbtiles":
+            fixture.write_bytes(b"SQLite format 3\0")
+        else:
+            fixture.write_text("{}", encoding="utf-8")
+
+    findings = secret_scan.scan(fixtures)
+
+    assert [finding.kind for finding in findings] == ["blocked_path"] * len(fixtures)
 
 
 def test_secret_scan_blocks_private_workspace_paths(tmp_path):
