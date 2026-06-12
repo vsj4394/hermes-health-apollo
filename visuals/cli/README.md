@@ -24,13 +24,14 @@ health_query / health_feature_query / health_analyze
         -> structured rows, metrics, or analysis results
         -> visual_specs.json entry declares fields, coverage, and privacy
         -> renderer produces plain ASCII with optional ANSI color
-        -> health-visuals skill selects an existing spec or drafts a new one
+        -> health-visuals skill uses prompt-level semantic routing
 ```
 
-The `health-visuals` skill is the self-writing workflow. When a user asks for a
-visual and no catalog entry fits, it should draft a new `visual_specs.json`
-entry, add a `mockups/<visual_id>.txt` sketch, and describe which analysis/tool
-should supply the structured facts later.
+The `health-visuals` skill is the self-writing workflow. It should answer on the
+first pass: use an existing catalog entry when the semantic intent fits, or
+draft a new visual spec, `mockups/<visual_id>.txt` sketch, and analysis/tool
+handoff when the request is novel. Keep routing examples in the skill prompt and
+reference notes, not in `visual_specs.json`.
 
 ## Catalog
 

@@ -2,7 +2,6 @@
   {
     "id": "meeting_stress_leaderboard",
     "title": "Meeting Stress Leaderboard",
-    "triggers": ["meeting stress", "heart rate meetings", "heart rate spike", "stress leaderboard", "coworker stress", "meeting titles"],
     "purpose": "Rank meetings or meeting clusters by biometric elevation versus local baseline.",
     "data": ["calendar_events", "heart_rate_samples", "stress_samples"],
     "privacy_default": "Redact titles and use role labels, pseudonyms, or attendee counts.",
@@ -12,7 +11,6 @@
   {
     "id": "attendee_effect_board",
     "title": "Attendee Effect Board",
-    "triggers": ["attendee effect", "coworker leaderboard", "coworkers make my heart rate spike", "person stress", "who raises heart rate", "raises heart rate"],
     "purpose": "Estimate per-attendee marginal effect with regularized rankings and confidence labels.",
     "data": ["calendar_attendees", "meeting_scores", "heart_rate_baselines"],
     "privacy_default": "Pseudonymize attendees and suppress rows below the minimum n threshold.",
@@ -22,7 +20,6 @@
   {
     "id": "recovery_gate",
     "title": "Recovery Gate",
-    "triggers": ["recovery gate", "readiness calendar", "tomorrow strain", "protect my day"],
     "purpose": "Compare readiness and sleep against today or tomorrow's calendar load.",
     "data": ["readiness_score", "sleep_score", "calendar_peek", "meeting_minutes"],
     "privacy_default": "Show minutes and blocked windows, not event names.",
@@ -32,7 +29,6 @@
   {
     "id": "day_shape_barcode",
     "title": "Day Shape Barcode",
-    "triggers": ["day shape", "daily barcode", "timeline barcode", "show my day"],
     "purpose": "Compress sleep, stress, calendar, email, and food timing into one scan-friendly row.",
     "data": ["sleep_interval", "hourly_stress", "calendar_occupancy", "email_counts", "meal_times"],
     "privacy_default": "Use counts, bars, and meal letters only.",
@@ -42,7 +38,6 @@
   {
     "id": "workload_outcome_matrix",
     "title": "Workload Outcome Matrix",
-    "triggers": ["workload matrix", "meetings email stress", "email meeting load", "workload outcome"],
     "purpose": "Bucket meeting and email load against stress, sleep, or readiness outcomes.",
     "data": ["meeting_minutes", "email_received_count", "stress_high_seconds", "sleep_score"],
     "privacy_default": "Aggregated quadrants only.",
@@ -52,7 +47,6 @@
   {
     "id": "coverage_trust_ledger",
     "title": "Coverage Trust Ledger",
-    "triggers": ["coverage", "data trust", "missing data", "sync completeness"],
     "purpose": "Show whether each data domain is complete enough to trust a result.",
     "data": ["health_coverage", "sync_runs", "sync_errors", "table_row_counts"],
     "privacy_default": "Operational metadata only.",

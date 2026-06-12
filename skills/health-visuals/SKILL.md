@@ -1,12 +1,13 @@
 ---
 name: health-visuals
-description: Use when the user asks for terminal, CLI, ASCII, ANSI, dashboard, leaderboard, chart, visualization, visual idea, or new visual output for local health, wearable, calendar, email, food, workout, sleep, stress, recovery, or readiness data. If no existing visual fits, design a new privacy-safe CLI visual spec and mockup.
+description: Use when the user asks for terminal, CLI, ASCII, ANSI, dashboard, leaderboard, chart, visualization, visual idea, or new visual output for local health, wearable, calendar, email, food, workout, sleep, stress, recovery, or readiness data. Select an existing CLI visual by semantic intent, or design a new privacy-safe first-pass CLI visual spec and mockup in the same answer.
 ---
 
 # Health Visuals
 
-Use this skill to answer with terminal-only visuals or to design a new visual
-when the current catalog does not fit the user's moment.
+Use this skill to answer with terminal-only visuals. Route by semantic intent in
+this skill prompt and reference notes, not by routing fields in JSON. The catalog
+describes visual specs; it is not a prompt router.
 
 ## Workflow
 
@@ -21,9 +22,8 @@ when the current catalog does not fit the user's moment.
    filling values: `health_coverage`, `health_query`, `health_feature_query`,
    `health_event_query`, `health_calendar_peek`, `health_analysis_plan`, or
    `health_analyze`.
-4. If no visual fits, synthesize a new visual:
+4. For a novel visual intent, synthesize a first-pass visual immediately:
    - Name it in `snake_case`.
-   - Add trigger phrases that would route similar future requests to it.
    - State purpose, required data, minimum coverage, privacy default, and caveat.
    - Render a plain-text mockup that works without color.
    - Include `safe` and `detail` privacy modes. Default to `safe`.
@@ -35,6 +35,23 @@ when the current catalog does not fit the user's moment.
    - Add `mockups/<visual_id>.txt`.
    - Update `visuals/cli/README.md` when the catalog list changes.
    - Add tests or update `tests/test_visual_catalog.py`.
+
+## Routing Cues
+
+These examples belong in the skill instructions because the model uses them to
+choose behavior. Do not copy them into `visual_specs.json`.
+
+- Meeting stress, heart-rate spikes during meetings, coworker stress, or meeting
+  title requests: use `meeting_stress_leaderboard`; use `attendee_effect_board`
+  when the request ranks people or attendees.
+- Readiness versus today's or tomorrow's calendar: use `recovery_gate`.
+- A whole-day terminal strip, barcode, or timeline: use `day_shape_barcode`.
+- Meeting/email workload against stress, sleep, or readiness: use
+  `workload_outcome_matrix`.
+- Missing data, sync quality, or whether a chart can be trusted: use
+  `coverage_trust_ledger`.
+- Caffeine timing, sleep latency, next-day readiness, or any other visual not in
+  the catalog: produce a new first-pass visual spec and mockup in the answer.
 
 ## Design Rules
 
@@ -56,7 +73,6 @@ when the current catalog does not fit the user's moment.
 ```text
 VISUAL: <title>
 id: <snake_case_id>
-triggers: <phrases that should route future requests here>
 purpose: <why this is useful now>
 data: <tables/tools/features needed>
 minimum coverage: <threshold>
