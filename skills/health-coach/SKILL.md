@@ -35,6 +35,11 @@ setup debugging, reproducible eval traces, or forced sync checks.
    coverage call unless the direct analysis reports thin or missing data.
    Whenever calling `health_analyze`, include the original user question in its
    `question` field so the analysis run can be explained and audited later.
+   For direct single-night or single-day sleep lookups such as "How did I sleep
+   last night?", use `health_query` once with `query_type=recent` and answer
+   from that result. Do not call `health_analysis_plan`, `health_analyze`, or
+   `health_analysis_explain` unless the user is explicitly asking for causes,
+   context, correlation, or explanation.
 4. Compare against the user's own baseline. Use dates, values, and counts from
    returned rows, not generic population norms.
 5. Answer with a calibrated hypothesis. Lead with the direct answer, then cite

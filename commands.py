@@ -1060,13 +1060,19 @@ def _health_ask_prompt(question: str, *, sync_result: dict | None, days: int) ->
         sync_note = f"I did not refresh local health data before this question: {sync_result['skipped']} "
     else:
         sync_note = "I did not refresh local health data before this question. "
+    analysis_note = ""
+    if _question_needs_cross_domain_context(question):
+        analysis_note = (
+            "For cross-domain explanations, compare Oura stress/recovery/heart-rate/sleep "
+            "data with email volume and calendar load, but describe links as hypotheses "
+            "or associations, not proof of causality. "
+        )
     return (
         f"{sync_note}"
         "Answer using the health-coach skill and health-data tools. Query local "
-        "health data before answering. For cross-domain explanations, compare "
-        "Oura stress/recovery/heart-rate/sleep data with email volume and "
-        "calendar load, but describe links as hypotheses or associations, not "
-        "proof of causality. If data is missing or stale, say exactly what is "
+        "health data before answering. "
+        f"{analysis_note}"
+        "If data is missing or stale, say exactly what is "
         f"missing. User question: {question}"
     )
 
@@ -1164,6 +1170,29 @@ def _question_requests_fresh_sync(question: str) -> bool:
         "up-to-date",
     )
     return any(marker in normalized for marker in fresh_markers)
+
+
+def _question_needs_cross_domain_context(question: str) -> bool:
+    normalized = question.lower()
+    cross_domain_markers = (
+        "why",
+        "cause",
+        "caused",
+        "because",
+        "stress",
+        "calendar",
+        "meeting",
+        "meetings",
+        "email",
+        "inbox",
+        "workload",
+        "schedule",
+        "context",
+        "line up",
+        "correlat",
+        "associate",
+    )
+    return any(marker in normalized for marker in cross_domain_markers)
 
 
 def _hermes_command_prefix() -> list[str]:
