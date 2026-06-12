@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import sys
+
+
+def load_secret_scan():
+    module_path = Path(__file__).resolve().parents[1] / "scripts" / "secret_scan.py"
+    spec = importlib.util.spec_from_file_location("secret_scan", module_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["secret_scan"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_secret_scan_allows_obvious_test_placeholders(tmp_path):
+    secret_scan = load_secret_scan()
+    fixture = tmp_path / "fixture.py"
+    fixture.write_text(
+        "\n".join(
+            [
+                'client_secret = "client-secret"',
+                'access_token = "secret-access"',
+                'refresh_token = "old-refresh"',
+                'email = "user@example.test"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert secret_scan.scan([fixture]) == []
+
+
+def test_secret_scan_blocks_credential_files_and_values(tmp_path):
+    secret_scan = load_secret_scan()
+    fixture = tmp_path / "client_secret_google.json"
+    secret_value = "GOCSPX-" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ123456789"
+    fixture.write_text(
+        f'{{"client_secret": "{secret_value}"}}',
+        encoding="utf-8",
+    )
+
+    findings = secret_scan.scan([fixture])
+
+    assert {finding.kind for finding in findings} == {
+        "blocked_path",
+        "sensitive_assignment",
+    }
+
+
+def test_secret_scan_blocks_personal_emails(tmp_path):
+    secret_scan = load_secret_scan()
+    fixture = tmp_path / "notes.md"
+    address = "person" + "@" + "gmail.com"
+    fixture.write_text(f"Contact me at {address}\n", encoding="utf-8")
+
+    findings = secret_scan.scan([fixture])
+
+    assert [finding.kind for finding in findings] == ["personal_email"]
+
+
+def test_secret_scan_allows_public_project_contact(tmp_path):
+    secret_scan = load_secret_scan()
+    fixture = tmp_path / "README.md"
+    fixture.write_text("Maintainer: RTK <apollo@ultima.inc>\n", encoding="utf-8")
+
+    assert secret_scan.scan([fixture]) == []
+
+
+def test_secret_scan_blocks_map_and_location_exports(tmp_path):
+    secret_scan = load_secret_scan()
+    source_map = tmp_path / "bundle.js.map"
+    route = tmp_path / "morning-run.gpx"
+    source_map.write_text("{}", encoding="utf-8")
+    route.write_text("<gpx></gpx>", encoding="utf-8")
+
+    findings = secret_scan.scan([source_map, route])
+
+    assert [(finding.path.endswith(".map"), finding.kind) for finding in findings] == [
+        (True, "blocked_path"),
+        (False, "blocked_path"),
+    ]
+
+
+def test_secret_scan_blocks_private_workspace_paths(tmp_path):
+    secret_scan = load_secret_scan()
+    private_files = [
+        tmp_path / "docs" / "plan.md",
+        tmp_path / "docker" / "dev.Dockerfile",
+        tmp_path / ".omx" / "state.json",
+        tmp_path / "plans" / "release.md",
+        tmp_path / ".context" / "handoff.md",
+    ]
+    for path in private_files:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("private workspace note\n", encoding="utf-8")
+
+    findings = secret_scan.scan(private_files)
+
+    assert [finding.kind for finding in findings] == ["blocked_path"] * len(private_files)

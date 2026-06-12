@@ -1,0 +1,381 @@
+# Hermes Health Data Plugin
+
+Standalone Hermes plugin for local health and daily-context data. It is designed
+to live outside Hermes core and install into a Hermes profile as
+`health-data`.
+
+Maintainer: RTK (`apollo@ultima.inc`, X: `@RiverKhan`).
+
+## Install and enable
+
+Prerequisite: install and configure Hermes first. This repository supplies the
+health-data plugin; it does not install Hermes itself.
+
+For development from a local checkout:
+
+```bash
+make install-git-hooks
+make install-local
+hermes plugins enable health-data
+```
+
+`make install-git-hooks` installs the repository's tracked pre-push hook into
+the clone's effective Git hooks directory. The hook blocks pushes to private ref
+namespaces such as Conductor checkpoints while allowing normal branch and tag
+pushes. If a different local `pre-push` hook already exists, the installer
+refuses to overwrite it.
+
+`make install-local` installs this workspace into the active Hermes profile as
+`health-data` using the profile's Hermes home. It copies only git-visible,
+non-ignored files and writes `.health-data-install.json` metadata with the
+workspace source path, plugin version, git commit, branch, dirty state, install
+time, and destination. `hermes health status` reports that metadata so stale
+installed copies are visible. This command is intended for contributors and
+local testing.
+
+For normal use once a package is published:
+
+```bash
+pip install hermes-health-data
+hermes plugins enable health-data
+```
+
+Restart Hermes after enabling, then run setup:
+
+```bash
+hermes health setup
+```
+
+Setup connects providers, registers the `/health` command family, adds the
+plugin `skills/` directory to `skills.external_dirs`, and installs the scheduled
+sync launcher at `~/.hermes/scripts/health_sync.py`. Setup also registers a
+Hermes no-agent cron job named `health-data-sync` on an `every 6h` schedule.
+`setup` and `status` report whether that cron is registered and whether the
+Hermes gateway appears to be running. If the gateway is stopped, the cron job is
+registered but scheduled syncs will not fire automatically; start or install the
+gateway explicitly with `hermes gateway run` or `hermes gateway install`.
+
+## Oura developer app setup
+
+Official docs:
+<https://cloud.ouraring.com/docs/authentication>
+
+Oura does not expose developer-application registration through the API. You
+must create the app in the browser:
+
+1. Log in to <https://cloud.ouraring.com/oauth/applications> with the Oura
+   account that owns the ring.
+2. Create a new application.
+3. Fill the registration form:
+   - Display Name: `Hermes Health Data` or another personal name.
+   - Description: `Personal local Hermes plugin for my own Oura health data.`
+   - Contact Email: your email.
+   - Website: a valid URL you control, for example a GitHub profile/repo or
+     personal site. The portal expects a URL, not free-form text.
+   - Privacy Policy / Terms of Service: for a personal-only app, use a valid
+     URL that explains the data stays local on your machine. A README, gist, or
+     personal page is enough for personal use.
+   - Redirect URI: `http://localhost:43828/callback` exactly, then click
+     `Add URI`. Oura's portal currently rejects `http://127.0.0.1...` even
+     though it is also loopback; use the literal `localhost` hostname.
+4. Select the scopes the plugin can sync: `Daily`, `Session`, `SpO2`, `Stress`,
+   `Heartrate`, `Tag`, `Workout`, `Personal`, `Heart Health`, and `Ring
+   Configuration`. Oura's OpenAPI 1.34 names the SpO2 OAuth scope `spo2Daily`,
+   while some auth examples use `spo2`; leaving the OAuth scope parameter blank
+   lets Oura request the scopes enabled on the developer app.
+5. Accept the Oura API Agreement and save the application.
+6. Save the Client ID and Client Secret in your Hermes env file or provide them
+   at an interactive prompt. The variable names are:
+
+```text
+HERMES_OURA_CLIENT_ID
+HERMES_OURA_CLIENT_SECRET
+```
+
+Then run the short setup/admin flow:
+
+```bash
+hermes health setup
+hermes health connect
+hermes health status
+hermes health sync
+```
+
+By default, the plugin omits the OAuth `scope` query parameter. Oura documents
+that a blank scope requests the scopes enabled on the developer app, so keep the
+app limited to the health-data scopes above. Advanced users can test explicit
+OAuth scopes with:
+
+```bash
+hermes health connect --scopes 'email personal daily heartrate tag workout session spo2Daily'
+```
+
+The browser flow handles Oura login and consent. If loopback browser login does
+not work, start the manual flow:
+
+```bash
+hermes health connect --manual
+```
+
+The command returns an `authorize_url` and `state`; open the URL, approve
+access, then copy the `code` query parameter from the localhost callback URL and
+re-run:
+
+```bash
+hermes health connect --code '<CODE_FROM_CALLBACK>' --state '<STATE_FROM_PREVIOUS_OUTPUT>'
+```
+
+For debugging browser callback problems without waiting the default two
+minutes, pass `--loopback-timeout <seconds>`.
+
+## WHOOP developer app setup
+
+WHOOP support is not wired into this release yet; there is no
+`hermes health connect-whoop` command today. This section is for users and
+contributors who want to prepare a WHOOP app before the connector lands.
+
+Official docs:
+<https://developer.whoop.com/docs/developing/getting-started/>
+<https://developer.whoop.com/docs/developing/oauth/>
+<https://developer.whoop.com/api/>
+
+1. Log in to the WHOOP Developer Dashboard at
+   <https://developer-dashboard.whoop.com/> with the WHOOP account you want to
+   authorize.
+2. Create a Team if the dashboard prompts you to do so.
+3. Create a new App.
+4. Select only the scopes the connector will actually need:
+   `read:profile`, `read:body_measurement`, `read:cycles`, `read:recovery`,
+   `read:sleep`, and `read:workout`. Add `offline` when the connector needs
+   refresh tokens for scheduled background sync.
+5. Add the redirect URL that the eventual connector documents. WHOOP requires
+   the OAuth redirect URL to match one registered in the Developer Dashboard.
+   Their docs show HTTPS URLs and custom app-scheme URLs as valid examples; do
+   not assume an arbitrary localhost callback will work until the connector
+   specifies it.
+6. Save the App, then copy the Client ID and Client Secret into your password
+   manager or local secret store. Do not commit them to this repository, paste
+   them into docs, or put them in `.context`, `.omx`, `docs`, `docker`, or
+   `plans`.
+
+When WHOOP support is added, the connector should document its exact redirect
+URL, token file, env var names, and setup command in this section before
+release.
+
+## Google Workspace setup
+
+Google Workspace auth is exposed through the health CLI:
+
+```bash
+hermes health connect-google --install-deps --open-browser
+```
+
+If no client secret has been stored yet, the command looks for a downloaded
+Google OAuth JSON in `~/Downloads` or `~/Desktop`, stores it under
+`~/.hermes/google_client_secret.json`, and opens Google's consent page. You can
+also pass an explicit file:
+
+```bash
+hermes health connect-google --client-secret /path/to/google_client_secret.json --open-browser
+```
+
+Choose the Google account in the browser, approve access, then copy the full
+`http://localhost:1/...` redirect URL from the address bar. The browser may show
+a connection error because no server is listening on port 1; the code in the
+URL is still valid. Finish the connection with:
+
+```bash
+hermes health connect-google --auth-code '<FULL_LOCALHOST_REDIRECT_URL>'
+hermes health connect-google --check-live
+hermes health sync --days 30
+```
+
+Use `hermes health connect-google` with no arguments to check the current state.
+If the client secret is already stored, it prints a fresh authorization URL.
+
+## Sensitive data warning
+
+The plugin stores health and context data in `~/.hermes/health.db`. That SQLite
+database can contain sensitive health PII, calendar metadata, email counts, and
+food logs. It is protected only by local OS file permissions. Review backups,
+sync tools, and shared-machine access before enabling the plugin.
+
+Plan A adds local sync provenance tables alongside the existing compatibility
+tables: `health_sources`, `source_scopes`, `sync_runs`, `sync_batches`,
+`sync_cursors`, `sync_errors`, `sync_schedules`, `raw_records`, and
+`record_lineage`. Existing `oura_*`, `calendar_daily`, `email_daily`,
+`food_logs`, `sync_state`, and `daily_overview` tables remain the query
+surface.
+
+`raw_records` stores Oura payloads and redacted Google metadata locally so
+future migrations can be traced back to provider records. Gmail body content,
+Gmail snippets, OAuth secrets, credential files, calendar attendee identities,
+conference join details, and precise location coordinates are not persisted by
+default.
+
+## Commands
+
+```bash
+hermes health setup
+hermes health connect
+hermes health connect-google
+hermes health connect-google --open-browser
+hermes health connect-google --client-secret /path/to/google_client_secret.json --open-browser
+hermes health connect-google --auth-code '<FULL_LOCALHOST_REDIRECT_URL>'
+hermes health sync
+hermes health sync --days 30
+hermes health sync --start-date 2026-05-12 --end-date 2026-06-10
+hermes health status
+hermes health uninstall
+hermes health uninstall --purge
+```
+
+Slash command equivalents are exposed under `/health`, including `/health sync`
+and `/health status`.
+
+## Asking questions
+
+Normal product use is just Hermes chat. Once the plugin is installed and
+enabled, health questions route through the health-coach skill and local
+health-data tools automatically:
+
+```bash
+hermes
+# then ask: how did I sleep last night?
+
+hermes -z "Why was I stressed yesterday?"
+hermes -z "What should I prioritize today based on recovery and schedule?"
+hermes -z "Did my inbox or meetings line up with my stress this week?"
+```
+
+`hermes health ask ...` is a lower-level command for debugging the health
+question path:
+
+```bash
+hermes health ask "Why was I stressed yesterday?"
+hermes health ask "What is current right now?" --sync
+hermes health ask "How did I sleep?" --no-sync
+```
+
+`hermes health sync` uses a short rolling Oura window so routine cron jobs stay
+cheap and includes yesterday plus today for Google email/calendar context. It
+syncs Oura daily summaries, sleep sessions, heart-rate samples,
+workouts, Oura app sessions, tags, enhanced tags, resilience, cardiovascular
+age, VO2 max, sleep-time recommendations, rest-mode periods, ring battery, ring
+configuration, and personal info when the token has the corresponding scopes.
+After first connecting Oura, run `hermes health sync --days 365` or an explicit
+date range to backfill older rows that were not in the default window.
+
+`hermes health setup` installs an every-six-hours no-agent cron job named
+`health-data-sync`. Normal health questions use that cron baseline. The
+lower-level `hermes health ask ...` command only runs `hermes health sync
+--days 3` before asking when local sync state is older than six hours, missing,
+explicitly requested by `--sync`, or the question asks for current/fresh/latest
+data.
+
+The health sync cron is not a reminder scheduler. For user-visible reminders
+such as "remind me to eat every day at 1pm", use Hermes cron/reminder scheduling
+explicitly, for example:
+
+```bash
+hermes cron create --name eat-reminder --deliver local "0 13 * * *" "Remind me to eat."
+```
+
+`hermes health status` includes this guidance so sync setup is not confused with
+reminder delivery.
+
+Use `--sync` when you want to force a refresh now. Use `--no-sync` when you want
+the fastest possible answer from already-synced local data.
+
+Health questions query the local data through `health_query` using
+`recent`, `date_range`, `stress_days`, `correlate`, `heart_rate`, `workouts`,
+`sessions`, `tags`, and `coverage`. Broad analytical questions should use the
+Plan B analysis tools when available: `health_analysis_plan`, `health_coverage`,
+`health_analyze`, and `health_analysis_explain`.
+
+## Development and verification
+
+After local changes, refresh the active Hermes plugin copy and verify drift:
+
+```bash
+make install-local
+make verify-local-install
+hermes health status
+```
+
+`make verify-local-install` compares git-visible workspace files against the
+installed plugin copy, reads only install metadata, and includes cron/gateway
+status guidance. It does not read or export health databases, OAuth tokens, or
+other personal data.
+
+Before pushing public changes, run the same secret tripwire used by CI:
+
+```bash
+python scripts/secret_scan.py
+```
+
+The default scan checks git-tracked files and blocks private workspace paths
+even if they were force-added. Private planning/runtime areas such as `.context`,
+`.omx`, `docs`, `docker`, `plans`, `.private`, `.local`, and `scratch` are
+ignored for normal Git usage and rejected by the scanner if tracked.
+
+For a clean snapshot or raw directory copy audit, run:
+
+```bash
+python scripts/secret_scan.py --all-files
+```
+
+This also checks ignored local files while skipping vendored/generated
+directories such as `.venv`, `build`, and `dist`. It is expected to fail if
+private local workspace folders contain files; publish from `git archive` or
+remove those folders from the export.
+
+Lane 1 is deterministic and does not call a model:
+
+```bash
+make health-eval
+```
+
+Plan C deterministic UX/eval scaffolding has a separate lane:
+
+```bash
+make health-eval-plan-c
+make health-eval-plan-c-full
+```
+
+The deterministic judge and full local scorecard run on the same fixture without
+calling a model. The baseline target remains available for quick fixture rebuilds:
+
+```bash
+make health-eval-judge
+make health-eval-full
+make health-eval-baseline
+```
+
+The current CI workflow runs the secret tripwire before deterministic health
+evals on push. Run the full local unit suite with `python -m pytest` before
+publishing a release.
+
+## Publishing a clean public snapshot
+
+Do not publish this Conductor workspace by pushing its existing `.git`
+directory, using `git clone --mirror`, or using `git push --mirror`. Local
+development history can contain Conductor checkpoints, OMX logs, old private
+planning docs, and other refs that should not become public.
+
+Publish from a clean tracked-file snapshot instead:
+
+```bash
+python scripts/secret_scan.py
+uv run --extra dev python -m pytest tests/test_secret_scan.py tests/test_context_commands.py
+scripts/create_public_snapshot.sh ../hermes-health-data-public
+cd ../hermes-health-data-public
+git commit -m "Release Hermes health data plugin"
+git remote add origin <PUBLIC_REPO_URL>
+git push -u origin main
+```
+
+The snapshot script refuses to run with uncommitted changes, exports only the
+current committed `HEAD` with `git archive`, re-runs the secret scan inside the
+snapshot, and initializes a brand-new Git repository. This keeps private refs,
+ignored folders, and historical `docs/` or `.omx/` blobs out of the public repo.

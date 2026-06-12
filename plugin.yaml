@@ -1,0 +1,16 @@
+name: health-data
+version: 0.1.0
+kind: standalone
+description: Local health and daily-context data store for Hermes.
+provides_tools:
+  - health_query
+  - health_sync
+  - health_log_food
+  - health_calendar_peek
+  - health_coverage
+  - health_event_query
+  - health_feature_query
+  - health_analysis_catalog
+  - health_analysis_plan
+  - health_analyze
+  - health_analysis_explain

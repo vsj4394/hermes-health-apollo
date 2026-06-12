@@ -1,0 +1,47 @@
+# Private workspaces and planning artifacts. Keep public docs in README unless
+# this policy is intentionally changed.
+.context/
+.omx/
+docs/
+docker/
+plans/
+.private/
+.local/
+scratch/
+
+# Local Python/dev artifacts.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+build/
+dist/
+*.egg-info/
+health_eval_scorecard.json
+uv.lock
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.jsonl
+*.map
+*.geojson
+*.gpx
+*.kml
+*.kmz
+*.fit
+*.tcx
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*secret*.json
+*token*.json
+*credential*.json

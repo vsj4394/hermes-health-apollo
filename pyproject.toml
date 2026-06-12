@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=69,<80", "wheel>=0.43,<1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-health-data"
+version = "0.1.0"
+description = "Standalone Hermes plugin for local health and daily-context data."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "MIT" }
+authors = [
+  { name = "RTK", email = "apollo@ultima.inc" },
+]
+dependencies = [
+  "hermes-agent>=0.1,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-timeout>=2.3,<3",
+]
+
+[project.entry-points."hermes_agent.plugins"]
+health-data = "health_data_entry"
+
+[tool.setuptools]
+py-modules = [
+  "health_data_entry",
+  "store",
+  "query",
+  "food",
+  "commands",
+  "onboarding",
+  "oura",
+  "normalize",
+  "context",
+  "sync_control",
+  "semantic_layer",
+  "feature_registry",
+  "feature_engineering",
+  "analysis_registry",
+  "analysis_tools",
+]
+packages = ["health_data_assets"]
+
+[tool.setuptools.package-data]
+health_data_assets = [
+  "plugin.yaml",
+  "skills/health-coach/SKILL.md",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q --timeout=30"
+testpaths = ["tests"]
+markers = [
+  "integration: tests that drive a real Hermes agent or external model",
+]
