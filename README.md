@@ -428,28 +428,18 @@ This repository is now the canonical Apollo checkout. Hermes installs the
 plugin into one active Hermes home at a time, normally
 `~/.hermes/plugins/health-data`.
 
-If you want a separate development profile, use `HERMES_HOME` to isolate local
-data, OAuth tokens, and the installed plugin copy:
+For the normal one-repo setup, just use your default Hermes home:
 
 ```bash
-# Daily/live profile: install from this repo into ~/.hermes
 cd /path/to/hermes-health-apollo
-HERMES_HOME="$HOME/.hermes" make install-local
-HERMES_HOME="$HOME/.hermes" make verify-local-install
-HERMES_HOME="$HOME/.hermes" hermes health status
-
-# Dev profile: same repo, separate Hermes home
-cd /path/to/hermes-health-apollo
-HERMES_HOME="$HOME/.hermes-dev" make install-local
-HERMES_HOME="$HOME/.hermes-dev" hermes health setup
-HERMES_HOME="$HOME/.hermes-dev" hermes health connect
-HERMES_HOME="$HOME/.hermes-dev" hermes health connect-google --open-browser
-HERMES_HOME="$HOME/.hermes-dev" hermes health sync --days 7
-HERMES_HOME="$HOME/.hermes-dev" make verify-local-install
+make install-local
+make verify-local-install
+hermes health status
 ```
 
-The dev profile has its own `health.db`, OAuth files, installed plugin copy,
-and sync launcher under `~/.hermes-dev`. Keep both Hermes homes outside the
+If you ever want a second isolated profile, set `HERMES_HOME` to another path
+such as `~/.hermes-dev`. That profile gets its own `health.db`, OAuth files,
+installed plugin copy, and sync launcher. Keep all Hermes homes outside the
 repository and never commit their contents.
 
 After local changes, refresh the active Hermes plugin copy and verify drift:
