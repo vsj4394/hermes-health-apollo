@@ -139,11 +139,18 @@ make install-local
 hermes plugins enable health-data
 ```
 
-`make install-git-hooks` installs the repository's tracked pre-push hook into
-the clone's effective Git hooks directory. The hook blocks pushes to private ref
-namespaces such as Conductor checkpoints while allowing normal branch and tag
-pushes. If a different local `pre-push` hook already exists, the installer
-refuses to overwrite it.
+`make install-git-hooks` installs the repository's tracked `pre-commit` and
+`pre-push` hooks into the clone's effective Git hooks directory.
+
+- `pre-commit` scans staged files with `scripts/secret_scan.py` and blocks the
+  commit if it finds secrets, personal local artifacts, token files, local DBs,
+  map/route exports, or other blocked private material.
+- `pre-push` scans tracked repo content again before upload and also blocks
+  pushes to private ref namespaces such as Conductor checkpoints while allowing
+  normal branch and tag pushes.
+
+The installer will overwrite older repo-managed hook versions, but it refuses
+to overwrite unrelated custom local hooks.
 
 `make install-local` installs this workspace into the active Hermes profile as
 `health-data` using the profile's Hermes home. It copies only git-visible,

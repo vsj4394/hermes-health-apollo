@@ -1,0 +1,22 @@
+#!/bin/sh
+# Managed by Hermes Health Apollo git hook installer.
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+python_bin=$(command -v python3 || command -v python || true)
+
+if [ -z "$python_bin" ]; then
+  echo "BLOCKED: python3 or python is required to run scripts/secret_scan.py" >&2
+  exit 1
+fi
+
+staged_paths=$(mktemp "${TMPDIR:-/tmp}/health-pre-commit.XXXXXX")
+trap 'rm -f "$staged_paths"' EXIT INT TERM
+
+git diff --cached --name-only --diff-filter=ACMR -z >"$staged_paths"
+
+if [ ! -s "$staged_paths" ]; then
+  exit 0
+fi
+
+xargs -0 "$python_bin" "$repo_root/scripts/secret_scan.py" <"$staged_paths"
