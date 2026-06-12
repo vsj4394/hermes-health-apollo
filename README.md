@@ -10,6 +10,10 @@ and generated analysis all live under your Hermes profile instead of inside this
 repository.
 
 Maintainer: RTK (X: `@RiverKhan`).
+Community: Discord <https://discord.gg/AeUbSYas>
+
+Prerequisite: Hermes Agent must already be installed and configured. Apollo is
+the `health-data` plugin for Hermes, not a standalone app.
 
 ## What it does
 
@@ -68,8 +72,8 @@ not include a `hermes health connect-whoop` command yet.
 
 ## Install and enable
 
-Prerequisite: install and configure Hermes first. This repository supplies the
-health-data plugin; it does not install Hermes itself.
+Prerequisite: install and configure Hermes Agent first. This repository supplies
+the `health-data` plugin; it does not install Hermes itself.
 
 For development from a local checkout:
 
