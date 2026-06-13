@@ -465,3 +465,68 @@ def test_non_numeric_value_does_not_abort_batch(modules):
     assert len(sample) == 1
     assert tuple(sample[0])[0] is None
     assert interval_count == 1
+
+
+def _set_profile_timezone(conn, tz_name):
+    conn.execute(
+        """
+        INSERT INTO health_profile(
+            id, timezone, goals_json, already_uses_json, privacy_json, routine_json
+        )
+        VALUES ('default', ?, '[]', '[]', '{}', '{}')
+        ON CONFLICT(id) DO UPDATE SET timezone = excluded.timezone
+        """,
+        (tz_name,),
+    )
+
+
+def test_session_day_uses_profile_timezone_tokyo(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    with store.connect() as conn:
+        _set_profile_timezone(conn, "Asia/Tokyo")
+        # 2026-06-12T23:10:00Z is 2026-06-13 08:10 in Tokyo (UTC+9): the session
+        # belongs to the user's local day 06-13, not the UTC day 06-12.
+        google_health.persist_google_health(conn, responses=[_session_response()])
+        day = conn.execute("SELECT day FROM health_sessions").fetchone()[0]
+    assert day == "2026-06-13"
+
+
+def test_session_day_uses_profile_timezone_california(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    session = {
+        "dataType": "com.google.sleep.segment",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "id": "sleep-ca-1",
+                "startTime": "2026-06-13T05:00:00Z",
+                "endTime": "2026-06-13T12:30:00Z",
+                "dataSource": {"platform": "FITBIT"},
+            }
+        ],
+    }
+    with store.connect() as conn:
+        _set_profile_timezone(conn, "America/Los_Angeles")
+        # 2026-06-13T05:00:00Z is 2026-06-12 22:00 PDT (UTC-7): local day 06-12.
+        google_health.persist_google_health(conn, responses=[session])
+        day = conn.execute("SELECT day FROM health_sessions").fetchone()[0]
+    assert day == "2026-06-12"
+
+
+def test_invalid_profile_timezone_falls_back_to_utc_day(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    with store.connect() as conn:
+        _set_profile_timezone(conn, "Not/AZone")
+        # An unknown timezone must not raise; fall back to the UTC calendar day.
+        google_health.persist_google_health(conn, responses=[_session_response()])
+        day = conn.execute("SELECT day FROM health_sessions").fetchone()[0]
+    assert day == "2026-06-12"
