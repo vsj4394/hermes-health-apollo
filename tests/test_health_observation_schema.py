@@ -776,3 +776,69 @@ def test_initialize_reconciles_stale_pr10_health_schema(modules):
     assert "source_id" in daily_columns
     assert "aggregation_kind" in daily_columns
     assert "source" not in daily_columns
+
+
+def test_interval_unix_ordering_is_enforced(modules):
+    store = modules["store"]
+    sync_control = modules["sync_control"]
+    store.initialize()
+
+    with store.connect() as conn:
+        source_id = sync_control.ensure_default_source(conn, "google_health")
+
+        # Text columns are lexically ordered (the TEXT CHECK passes) but the unix
+        # columns are reversed: the format-independent unix CHECK must still reject
+        # it. This guards against mixed-format/mixed-offset timestamps where lexical
+        # TEXT comparison is unreliable.
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO health_interval_observations(
+                    source_id, observation_key, provider_data_type, metric,
+                    start_time, end_time, start_time_unix, end_time_unix,
+                    value_number, metric_unit
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    source_id,
+                    "steps:unix-reversed",
+                    "step-count",
+                    "steps",
+                    "2026-06-12T10:00:00Z",
+                    "2026-06-12T10:05:00Z",
+                    1_000_000,
+                    500_000,
+                    100.0,
+                    "count",
+                ),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO health_interval_observations(
+                source_id, observation_key, provider_data_type, metric,
+                start_time, end_time, start_time_unix, end_time_unix,
+                value_number, metric_unit
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source_id,
+                "steps:unix-ok",
+                "step-count",
+                "steps",
+                "2026-06-12T10:00:00Z",
+                "2026-06-12T10:05:00Z",
+                500_000,
+                1_000_000,
+                100.0,
+                "count",
+            ),
+        )
+
+        count = conn.execute(
+            "SELECT COUNT(*) FROM health_interval_observations"
+        ).fetchone()[0]
+
+    assert count == 1

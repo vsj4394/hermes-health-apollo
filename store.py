@@ -471,7 +471,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
             quality_json TEXT NOT NULL DEFAULT '{}',
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (source_id, observation_key),
-            CHECK(end_time >= start_time)
+            -- The connector must normalize start_time/end_time to a single canonical
+            -- format (UTC, 'Z' suffix, fixed precision) for this lexical TEXT compare to
+            -- be reliable across mixed offsets. The *_unix CHECK enforces ordering
+            -- format-independently whenever the integer columns are populated.
+            CHECK(end_time >= start_time),
+            CHECK(
+                end_time_unix IS NULL
+                OR start_time_unix IS NULL
+                OR end_time_unix >= start_time_unix
+            )
         );
 
         CREATE TABLE IF NOT EXISTS health_sessions (
