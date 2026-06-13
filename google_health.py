@@ -154,6 +154,11 @@ def _persist_session(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
             "provider_user_id": ctx["user_id"],
             "provider_session_id": session_id,
             "session_type": session_type,
+            # KNOWN LIMITATION: this is the UTC calendar day of the start instant. For
+            # users far from UTC (e.g. Tokyo +9, California -8), a near-midnight session
+            # can bucket a day off the user's local day. To be made timezone-aware in
+            # the live connector, where the user's timezone (health_profile.timezone) is
+            # known.
             "day": str(start)[:10],
             "start_time": str(start),
             "end_time": end,
@@ -167,6 +172,8 @@ def _persist_session(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
 
 def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
     start = point.get("startTime")
+    # Prefer the provider's own day bucketing; the str(start)[:10] fallback is the UTC
+    # day and shares the session day's timezone limitation (see _persist_session).
     day = point.get("day") or (str(start)[:10] if start else None)
     if not day:
         return False
