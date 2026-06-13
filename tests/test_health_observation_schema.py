@@ -70,3 +70,28 @@ def test_store_connect_enforces_foreign_keys(modules):
                     "2026-06-12T10:00:00Z",
                 ),
             )
+
+
+def test_google_health_default_source_is_registered(modules):
+    store = modules["store"]
+    sync_control = modules["sync_control"]
+    store.initialize()
+
+    with store.connect() as conn:
+        source_id = sync_control.ensure_default_source(conn, "google_health")
+        row = conn.execute(
+            """
+            SELECT source_slug, provider, connection_name, status, sync_mode
+            FROM health_sources
+            WHERE source_id = ?
+            """,
+            (source_id,),
+        ).fetchone()
+
+    assert tuple(row) == (
+        "google_health",
+        "google_health",
+        "Google Health",
+        "disconnected",
+        "pull",
+    )
