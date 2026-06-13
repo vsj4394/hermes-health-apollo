@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -25,6 +26,8 @@ from . import sync_control
 
 SOURCE_SLUG = "google_health"
 PROVIDER = "google_health"
+
+logger = logging.getLogger(__name__)
 
 # Google Health ``dataType`` -> canonical mapping, one entry per temporal shape for
 # the MVP. Extend by adding rows; each shape routes to one canonical table.
@@ -53,7 +56,7 @@ def persist_google_health(
     types and points missing required timing are skipped. Returns per-shape counts.
     """
     source_id = sync_control.ensure_default_source(conn, SOURCE_SLUG)
-    tz = _profile_timezone(conn)
+    tz = _resolve_profile_timezone(conn)
     counts = {"sample": 0, "interval": 0, "session": 0, "daily": 0}
     for response in responses:
         spec = METRIC_REGISTRY.get(str(response.get("dataType")))
@@ -171,6 +174,10 @@ def _persist_session(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
 def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
     start = point.get("startTime")
     # Prefer the provider's own day bucketing; otherwise derive the user-local day.
+    # NOTE: `day` is part of the daily PK, so for a (rare) provider-day-less point the
+    # derived day is idempotent only while the profile timezone is stable -- changing
+    # the timezone between syncs would re-bucket it to a new PK row. Provider-day points
+    # (the live norm) are unaffected.
     day = point.get("day") or _local_day(start, ctx["tz"])
     if not day:
         return False
@@ -309,45 +316,54 @@ def _derive_key(*parts: str | None) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _profile_timezone(conn: sqlite3.Connection) -> str | None:
-    """The user's configured IANA timezone (health_profile.timezone), or None."""
+def _resolve_profile_timezone(conn: sqlite3.Connection) -> tzinfo:
+    """Resolve the user's configured timezone to a tzinfo, defaulting to UTC.
+
+    Reads the single-user ``health_profile`` ('default') row. Warns once -- rather
+    than silently bucketing as UTC, which is the very off-by-one this guards against
+    -- if a timezone is set but is not a known IANA zone. Single-user assumption: when
+    multi-user support lands, resolve the zone per userId instead of the 'default' row.
+    """
     row = conn.execute(
         "SELECT timezone FROM health_profile WHERE id = 'default'"
     ).fetchone()
-    return row[0] if row else None
+    tz_name = row[0] if row else None
+    if not tz_name:
+        return timezone.utc
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        logger.warning("Unknown profile timezone %r; bucketing days as UTC", tz_name)
+        return timezone.utc
 
 
-def _local_day(instant: str | None, tz_name: str | None) -> str | None:
-    """Calendar day of an RFC3339 instant in the user's timezone.
-
-    Google Health returns UTC instants; bucketing on the raw UTC date would assign
-    near-midnight data to the wrong local day for users far from UTC. Convert to the
-    user's timezone (when known and valid) before taking the date; fall back to the
-    UTC day when the timezone is unset, unknown, or the instant is unparseable.
-    """
-    if not instant:
+def _parse_instant(value: str | None) -> datetime | None:
+    """Parse an RFC3339 instant to an aware datetime (UTC if it carries no offset)."""
+    if not value:
         return None
     try:
-        moment = datetime.fromisoformat(str(instant).replace("Z", "+00:00"))
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    zone: ZoneInfo | timezone = timezone.utc
-    if tz_name:
-        try:
-            zone = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, ValueError):
-            zone = timezone.utc
-    return moment.astimezone(zone).date().isoformat()
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _local_day(instant: str | None, tz: tzinfo) -> str | None:
+    """Calendar day of an RFC3339 instant in the resolved timezone.
+
+    Google Health returns UTC instants; bucketing on the raw UTC date would assign
+    near-midnight data to the wrong local day for users far from UTC. Returns None for
+    an empty/unparseable instant (the point is then skipped).
+    """
+    moment = _parse_instant(instant)
+    if moment is None:
+        return None
+    return moment.astimezone(tz).date().isoformat()
 
 
 def _duration_seconds(start: str | None, end: str | None) -> int | None:
-    if not start or not end:
-        return None
-    try:
-        started = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
-        ended = datetime.fromisoformat(str(end).replace("Z", "+00:00"))
-    except ValueError:
+    started = _parse_instant(start)
+    ended = _parse_instant(end)
+    if started is None or ended is None:
         return None
     return int((ended - started).total_seconds())
