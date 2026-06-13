@@ -711,3 +711,68 @@ def test_health_tables_are_not_projected_to_semantic_layer_yet(modules):
         ).fetchone()
 
     assert row is None
+
+
+def test_initialize_reconciles_stale_pr10_health_schema(modules):
+    store = modules["store"]
+
+    db_path = store.database_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version(version) VALUES (7);
+            CREATE TABLE google_health_samples (
+                sample_id TEXT PRIMARY KEY,
+                source TEXT,
+                metric TEXT,
+                timestamp TEXT,
+                value_double REAL,
+                raw_json TEXT
+            );
+            CREATE TABLE google_health_sessions (
+                session_id TEXT PRIMARY KEY,
+                source TEXT,
+                session_type TEXT,
+                day TEXT,
+                raw_json TEXT
+            );
+            CREATE TABLE daily_health_metrics (
+                day TEXT NOT NULL,
+                source TEXT NOT NULL,
+                metric TEXT NOT NULL,
+                value_double REAL,
+                raw_json TEXT,
+                PRIMARY KEY (day, source, metric)
+            );
+            INSERT INTO daily_health_metrics(day, source, metric, value_double, raw_json)
+            VALUES ('2026-06-12', 'google_health', 'steps', 8088, '{}');
+            """
+        )
+
+    store.initialize()
+
+    with store.connect() as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        daily_columns = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(daily_health_metrics)")
+        }
+
+    assert "google_health_samples" not in tables
+    assert "google_health_sessions" not in tables
+    assert {
+        "health_sample_observations",
+        "health_interval_observations",
+        "health_sessions",
+        "daily_health_metrics",
+    } <= tables
+    assert "source_id" in daily_columns
+    assert "aggregation_kind" in daily_columns
+    assert "source" not in daily_columns

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 class SyncAlreadyRunning(RuntimeError):
@@ -69,7 +69,34 @@ def _database_file_family(db_path: Path) -> tuple[Path, ...]:
     )
 
 
+def _reconcile_pr10_schema(conn: sqlite3.Connection) -> None:
+    """Replace PR #10's loose Google Health tables with the source-linked schema.
+
+    PR #10 (also schema v7) shipped free-text ``daily_health_metrics(day, source, ...)``
+    plus ``google_health_samples`` / ``google_health_sessions`` keyed by a global
+    provider id. Those are superseded by the source-linked canonical tables. A database
+    initialized from that branch would otherwise crash here, because the new
+    ``idx_daily_health_metrics_source_day`` index references ``source_id``, which the
+    loose table lacks. The incompatible tables are dropped before the canonical DDL
+    runs. No rows are migrated: this lands before any connector writes real data, so
+    any rows present are pre-production placeholders.
+    """
+    tables = {
+        row[0]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    if "daily_health_metrics" in tables:
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(daily_health_metrics)")
+        }
+        if "source_id" not in columns:
+            conn.execute("DROP TABLE daily_health_metrics")
+    conn.execute("DROP TABLE IF EXISTS google_health_samples")
+    conn.execute("DROP TABLE IF EXISTS google_health_sessions")
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
+    _reconcile_pr10_schema(conn)
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS schema_version (
@@ -463,6 +490,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (source_id, session_key)
         );
 
+        -- PK leads with `day` for day-first rollup reads (all sources for a day);
+        -- source_id stays in the composite PK for per-source identity and also has the
+        -- dedicated idx_daily_health_metrics_source_day index for source-scoped access.
         CREATE TABLE IF NOT EXISTS daily_health_metrics (
             day TEXT NOT NULL,
             source_id TEXT NOT NULL REFERENCES health_sources(source_id) ON DELETE CASCADE,
