@@ -295,6 +295,7 @@ def test_interval_observation_contracts(modules):
                 ),
             )
 
+        shared_key = "steps:2026-06-12T10:00:00Z:2026-06-12T10:05:00Z"
         conn.execute(
             """
             INSERT INTO health_interval_observations(
@@ -305,7 +306,7 @@ def test_interval_observation_contracts(modules):
             """,
             (
                 source_id,
-                "steps:2026-06-12T10:00:00Z:2026-06-12T10:05:00Z",
+                shared_key,
                 "step-count",
                 "steps",
                 "2026-06-12T10:00:00Z",
@@ -315,11 +316,60 @@ def test_interval_observation_contracts(modules):
             ),
         )
 
+        second_source = sync_control.ensure_source(
+            conn,
+            source_slug="secondary_interval_source",
+            provider="test_provider",
+            connection_name="Secondary Interval Source",
+            status="connected",
+            sync_mode="pull",
+        )
+        conn.execute(
+            """
+            INSERT INTO health_interval_observations(
+                source_id, observation_key, provider_data_type, metric,
+                start_time, end_time, value_number, metric_unit
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                second_source,
+                shared_key,
+                "step-count",
+                "steps",
+                "2026-06-12T10:00:00Z",
+                "2026-06-12T10:05:00Z",
+                110.0,
+                "count",
+            ),
+        )
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO health_interval_observations(
+                    source_id, observation_key, provider_data_type, metric,
+                    start_time, end_time, value_number, metric_unit
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    source_id,
+                    shared_key,
+                    "step-count",
+                    "steps",
+                    "2026-06-12T10:00:00Z",
+                    "2026-06-12T10:06:00Z",
+                    120.0,
+                    "count",
+                ),
+            )
+
         count = conn.execute(
             "SELECT COUNT(*) FROM health_interval_observations"
         ).fetchone()[0]
 
-    assert count == 1
+    assert count == 2
 
 
 def test_session_key_is_required_and_source_scoped(modules):
