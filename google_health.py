@@ -13,6 +13,7 @@ canonical UTC ('Z') strings, which the text ordering CHECK handles.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime
@@ -77,7 +78,7 @@ def _persist_sample(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
         return False
     name = point.get("name")
     key = _derive_key(ctx["data_type"], name, str(sample_time))
-    value_number, value_text = _extract_value(point)
+    value_number = _extract_number(point)
     _upsert(
         ctx["conn"],
         table="health_sample_observations",
@@ -91,7 +92,6 @@ def _persist_sample(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
             "metric": ctx["spec"]["metric"],
             "sample_time": str(sample_time),
             "value_number": value_number,
-            "value_text": value_text,
             "metric_unit": ctx["spec"].get("unit"),
             "provenance_json": _provenance_json(point),
         },
@@ -105,9 +105,15 @@ def _persist_interval(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
     end = point.get("endTime")
     if not start or not end:
         return False
+    # Skip out-of-order intervals (provider clock skew) rather than letting the
+    # CHECK(end_time >= start_time) raise and abort the rest of the batch. This
+    # mirrors the table's text comparison exactly for the normalized timestamps
+    # this layer ingests.
+    if str(end) < str(start):
+        return False
     name = point.get("name")
     key = _derive_key(ctx["data_type"], name, str(start), str(end))
-    value_number, value_text = _extract_value(point)
+    value_number = _extract_number(point)
     _upsert(
         ctx["conn"],
         table="health_interval_observations",
@@ -122,7 +128,6 @@ def _persist_interval(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
             "start_time": str(start),
             "end_time": str(end),
             "value_number": value_number,
-            "value_text": value_text,
             "metric_unit": ctx["spec"].get("unit"),
             "provenance_json": _provenance_json(point),
         },
@@ -161,12 +166,13 @@ def _persist_session(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
 
 
 def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
-    day = point.get("day") or (str(point["startTime"])[:10] if point.get("startTime") else None)
+    start = point.get("startTime")
+    day = point.get("day") or (str(start)[:10] if start else None)
     if not day:
         return False
     metric = ctx["spec"]["metric"]
     aggregation_kind = point.get("aggregationKind") or ctx["spec"]["aggregation_kind"]
-    value_number, value_text = _extract_value(point)
+    value_number = _extract_number(point)
     _upsert(
         ctx["conn"],
         table="daily_health_metrics",
@@ -178,12 +184,11 @@ def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
             "provider_data_type": ctx["data_type"],
             "aggregation_kind": aggregation_kind,
             "value_number": value_number,
-            "value_text": value_text,
             "metric_unit": ctx["spec"].get("unit"),
             "provenance_json": _provenance_json(point),
         },
     )
-    canonical_id = _derive_key(day, metric, aggregation_kind)
+    canonical_id = _derive_key(day, ctx["source_id"], metric, "", aggregation_kind)
     _link(ctx, "daily_metric", canonical_id, point, "daily_health_metrics", canonical_id)
     return True
 
@@ -248,18 +253,17 @@ def _upsert(
     )
 
 
-def _extract_value(point: dict[str, Any]) -> tuple[float | None, str | None]:
+def _extract_number(point: dict[str, Any]) -> float | None:
+    """Numeric value of a point (fpVal/intVal). Returns 0.0 for a true zero."""
     values = point.get("value") or []
     if not values or not isinstance(values[0], dict):
-        return None, None
+        return None
     first = values[0]
     if first.get("fpVal") is not None:
-        return float(first["fpVal"]), None
+        return float(first["fpVal"])
     if first.get("intVal") is not None:
-        return float(first["intVal"]), None
-    if first.get("stringVal") is not None:
-        return None, str(first["stringVal"])
-    return None, None
+        return float(first["intVal"])
+    return None
 
 
 def _provenance_json(point: dict[str, Any]) -> str:
@@ -273,12 +277,16 @@ def _provenance_json(point: dict[str, Any]) -> str:
 
 
 def _derive_key(*parts: str | None) -> str:
-    """Deterministic, source-scoped key from the parts that are present.
+    """Deterministic, collision-safe, source-scoped key for the given parts.
 
     Google Health ``DataPoint.name`` is absent for most data types, so identity is a
-    composite of data type / point name (when present) / temporal bounds.
+    composite of data type / point name (when present) / temporal bounds. The parts
+    are hashed rather than delimiter-joined so that a value containing the delimiter --
+    a timezone offset like '+05:30', or a provider-supplied name -- can never make two
+    distinct points collide onto the same key.
     """
-    return ":".join(part for part in parts if part)
+    encoded = json.dumps(list(parts), separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _duration_seconds(start: str | None, end: str | None) -> int | None:

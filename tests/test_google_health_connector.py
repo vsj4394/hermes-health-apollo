@@ -308,3 +308,94 @@ def test_unregistered_datatype_is_skipped(modules):
         raw = conn.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0]
     assert sample == 0
     assert raw == 0
+
+
+def test_derive_key_is_collision_safe(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    # Two distinct points whose data_type/name/time parts would collide under a naive
+    # ':'-join ("...bpm:a:b:2026-06-12T11:00:00Z" for both). They must persist as two
+    # rows, not silently overwrite each other.
+    response = {
+        "dataType": "com.google.heart_rate.bpm",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "name": "a:b",
+                "startTime": "2026-06-12T11:00:00Z",
+                "endTime": "2026-06-12T11:00:00Z",
+                "value": [{"fpVal": 1.0}],
+            },
+            {
+                "name": "a",
+                "startTime": "b:2026-06-12T11:00:00Z",
+                "endTime": "b:2026-06-12T11:00:00Z",
+                "value": [{"fpVal": 2.0}],
+            },
+        ],
+    }
+    with store.connect() as conn:
+        google_health.persist_google_health(conn, responses=[response])
+        count = conn.execute(
+            "SELECT COUNT(*) FROM health_sample_observations"
+        ).fetchone()[0]
+    assert count == 2
+
+
+def test_out_of_order_interval_is_skipped_without_aborting_batch(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    bad_interval = {
+        "dataType": "com.google.step_count.delta",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "startTime": "2026-06-12T10:05:00Z",
+                "endTime": "2026-06-12T10:00:00Z",
+                "value": [{"intVal": 10}],
+            }
+        ],
+    }
+    with store.connect() as conn:
+        # The reversed interval must be skipped, and must NOT abort the good sample
+        # response that follows it in the same batch.
+        google_health.persist_google_health(
+            conn, responses=[bad_interval, _sample_response()]
+        )
+        interval_count = conn.execute(
+            "SELECT COUNT(*) FROM health_interval_observations"
+        ).fetchone()[0]
+        sample_count = conn.execute(
+            "SELECT COUNT(*) FROM health_sample_observations"
+        ).fetchone()[0]
+    assert interval_count == 0
+    assert sample_count == 1
+
+
+def test_int_zero_value_is_preserved_as_true_zero(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    response = {
+        "dataType": "com.google.step_count.delta",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "startTime": "2026-06-12T10:00:00Z",
+                "endTime": "2026-06-12T10:05:00Z",
+                "value": [{"intVal": 0}],
+            }
+        ],
+    }
+    with store.connect() as conn:
+        # A recorded zero is a true zero, not missing data.
+        google_health.persist_google_health(conn, responses=[response])
+        value = conn.execute(
+            "SELECT value_number FROM health_interval_observations"
+        ).fetchone()[0]
+    assert value == 0.0
