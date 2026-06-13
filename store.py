@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 class SyncAlreadyRunning(RuntimeError):
@@ -406,6 +406,91 @@ def _migrate(conn: sqlite3.Connection) -> None:
             UNIQUE(canonical_table, canonical_id, raw_record_id)
         );
 
+        CREATE TABLE IF NOT EXISTS health_sample_observations (
+            source_id TEXT NOT NULL REFERENCES health_sources(source_id) ON DELETE CASCADE,
+            observation_key TEXT NOT NULL,
+            provider_user_id TEXT,
+            provider_data_type TEXT NOT NULL,
+            provider_point_name TEXT,
+            metric TEXT NOT NULL,
+            metric_component TEXT NOT NULL DEFAULT '',
+            sample_time TEXT NOT NULL,
+            sample_time_unix INTEGER,
+            value_number REAL,
+            value_text TEXT,
+            metric_unit TEXT,
+            provenance_json TEXT NOT NULL DEFAULT '{}',
+            quality_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (source_id, observation_key)
+        );
+
+        CREATE TABLE IF NOT EXISTS health_interval_observations (
+            source_id TEXT NOT NULL REFERENCES health_sources(source_id) ON DELETE CASCADE,
+            observation_key TEXT NOT NULL,
+            provider_user_id TEXT,
+            provider_data_type TEXT NOT NULL,
+            provider_point_name TEXT,
+            metric TEXT NOT NULL,
+            metric_component TEXT NOT NULL DEFAULT '',
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            start_time_unix INTEGER,
+            end_time_unix INTEGER,
+            value_number REAL,
+            value_text TEXT,
+            metric_unit TEXT,
+            provenance_json TEXT NOT NULL DEFAULT '{}',
+            quality_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (source_id, observation_key),
+            CHECK(end_time >= start_time)
+        );
+
+        CREATE TABLE IF NOT EXISTS health_sessions (
+            source_id TEXT NOT NULL REFERENCES health_sources(source_id) ON DELETE CASCADE,
+            session_key TEXT NOT NULL,
+            provider_user_id TEXT,
+            provider_session_id TEXT,
+            session_type TEXT NOT NULL,
+            day TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT,
+            duration_seconds INTEGER,
+            provenance_json TEXT NOT NULL DEFAULT '{}',
+            metric_payload_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (source_id, session_key)
+        );
+
+        CREATE TABLE IF NOT EXISTS daily_health_metrics (
+            day TEXT NOT NULL,
+            source_id TEXT NOT NULL REFERENCES health_sources(source_id) ON DELETE CASCADE,
+            metric TEXT NOT NULL,
+            metric_component TEXT NOT NULL DEFAULT '',
+            provider_data_type TEXT,
+            aggregation_kind TEXT NOT NULL
+                CHECK(aggregation_kind IN (
+                    'provider_daily_summary',
+                    'provider_rollup',
+                    'provider_reconciled_rollup',
+                    'apollo_computed'
+                )),
+            value_number REAL,
+            value_text TEXT,
+            metric_unit TEXT,
+            provenance_json TEXT NOT NULL DEFAULT '{}',
+            quality_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (
+                day,
+                source_id,
+                metric,
+                metric_component,
+                aggregation_kind
+            )
+        );
+
         CREATE INDEX IF NOT EXISTS idx_oura_sleep_day_type
             ON oura_sleep_sessions(day, type);
         CREATE INDEX IF NOT EXISTS idx_oura_heart_rate_timestamp
@@ -454,6 +539,22 @@ def _migrate(conn: sqlite3.Connection) -> None:
             ON sync_errors(sync_run_id, sync_batch_id);
         CREATE INDEX IF NOT EXISTS idx_raw_records_source_object
             ON raw_records(source_id, object_type, extracted_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_sample_observations_metric_time
+            ON health_sample_observations(source_id, metric, sample_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_sample_observations_time
+            ON health_sample_observations(sample_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_interval_observations_metric_time
+            ON health_interval_observations(source_id, metric, start_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_interval_observations_time
+            ON health_interval_observations(start_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_sessions_source_day
+            ON health_sessions(source_id, day DESC);
+        CREATE INDEX IF NOT EXISTS idx_health_sessions_type_day
+            ON health_sessions(source_id, session_type, day DESC);
+        CREATE INDEX IF NOT EXISTS idx_daily_health_metrics_day_metric
+            ON daily_health_metrics(day, metric);
+        CREATE INDEX IF NOT EXISTS idx_daily_health_metrics_source_day
+            ON daily_health_metrics(source_id, day DESC);
 
         CREATE VIEW IF NOT EXISTS daily_overview AS
             SELECT
