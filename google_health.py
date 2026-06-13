@@ -171,7 +171,11 @@ def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
     if not day:
         return False
     metric = ctx["spec"]["metric"]
-    aggregation_kind = point.get("aggregationKind") or ctx["spec"]["aggregation_kind"]
+    # aggregation_kind is a property of the source endpoint (registry), not the point.
+    # Ignore any per-point aggregationKind: trusting it would let an unrecognized
+    # provider value violate the CHECK (aborting the batch) and would split idempotency
+    # across the PK if the field toggled between syncs.
+    aggregation_kind = ctx["spec"]["aggregation_kind"]
     value_number = _extract_number(point)
     _upsert(
         ctx["conn"],
@@ -188,6 +192,10 @@ def _persist_daily(ctx: dict[str, Any], point: dict[str, Any]) -> bool:
             "provenance_json": _provenance_json(point),
         },
     )
+    # daily_health_metrics has no single key column, so the lineage canonical_id is a
+    # surrogate hashed from the full composite PK (day, source_id, metric,
+    # metric_component='', aggregation_kind). To join record_lineage back to a daily
+    # row, recompute this key from those five columns.
     canonical_id = _derive_key(day, ctx["source_id"], metric, "", aggregation_kind)
     _link(ctx, "daily_metric", canonical_id, point, "daily_health_metrics", canonical_id)
     return True
@@ -254,16 +262,24 @@ def _upsert(
 
 
 def _extract_number(point: dict[str, Any]) -> float | None:
-    """Numeric value of a point (fpVal/intVal). Returns 0.0 for a true zero."""
+    """Numeric value of a point (fpVal/intVal).
+
+    Returns 0.0 for a true zero, and None for a missing or non-numeric value so a
+    malformed point persists with a NULL value rather than aborting the batch.
+    """
     values = point.get("value") or []
     if not values or not isinstance(values[0], dict):
         return None
     first = values[0]
-    if first.get("fpVal") is not None:
-        return float(first["fpVal"])
-    if first.get("intVal") is not None:
-        return float(first["intVal"])
-    return None
+    raw = first.get("fpVal")
+    if raw is None:
+        raw = first.get("intVal")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _provenance_json(point: dict[str, Any]) -> str:

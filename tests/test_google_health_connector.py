@@ -399,3 +399,69 @@ def test_int_zero_value_is_preserved_as_true_zero(modules):
             "SELECT value_number FROM health_interval_observations"
         ).fetchone()[0]
     assert value == 0.0
+
+
+def test_provider_aggregation_kind_is_ignored_and_does_not_abort_batch(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    daily_bogus = {
+        "dataType": "com.google.step_count.daily",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "day": "2026-06-12",
+                "aggregationKind": "hourly_bucket",
+                "value": [{"intVal": 8088}],
+            }
+        ],
+    }
+    with store.connect() as conn:
+        # An out-of-set provider aggregationKind must not reach the CHECK column and
+        # must not abort the good sample response queued after it.
+        google_health.persist_google_health(
+            conn, responses=[daily_bogus, _sample_response()]
+        )
+        daily = conn.execute(
+            "SELECT aggregation_kind FROM daily_health_metrics"
+        ).fetchall()
+        sample_count = conn.execute(
+            "SELECT COUNT(*) FROM health_sample_observations"
+        ).fetchone()[0]
+    assert len(daily) == 1
+    assert tuple(daily[0])[0] == "provider_daily_summary"
+    assert sample_count == 1
+
+
+def test_non_numeric_value_does_not_abort_batch(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    store.initialize()
+
+    bad_value = {
+        "dataType": "com.google.heart_rate.bpm",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "startTime": "2026-06-12T09:00:00Z",
+                "endTime": "2026-06-12T09:00:00Z",
+                "value": [{"fpVal": "abc"}],
+            }
+        ],
+    }
+    with store.connect() as conn:
+        # A non-numeric value persists with a NULL value_number rather than raising
+        # and aborting the good interval response that follows it.
+        google_health.persist_google_health(
+            conn, responses=[bad_value, _interval_response()]
+        )
+        sample = conn.execute(
+            "SELECT value_number FROM health_sample_observations"
+        ).fetchall()
+        interval_count = conn.execute(
+            "SELECT COUNT(*) FROM health_interval_observations"
+        ).fetchone()[0]
+    assert len(sample) == 1
+    assert tuple(sample[0])[0] is None
+    assert interval_count == 1
