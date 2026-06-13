@@ -490,3 +490,174 @@ def test_daily_health_metrics_identity_and_aggregation_kind(modules):
         count = conn.execute("SELECT COUNT(*) FROM daily_health_metrics").fetchone()[0]
 
     assert count == 2
+
+
+def test_health_sample_links_to_raw_record_lineage(modules):
+    store = modules["store"]
+    sync_control = modules["sync_control"]
+    store.initialize()
+
+    with store.connect() as conn:
+        source_id = sync_control.ensure_default_source(conn, "google_health")
+        raw_record_id = sync_control.persist_raw_record(
+            conn,
+            source_id=source_id,
+            sync_batch_id=None,
+            provider="google_health",
+            object_type="data_point:heart-rate",
+            external_id="derived:heart-rate:2026-06-12T10:00:00Z",
+            payload={
+                "heartRate": {
+                    "time": {"sampleTime": "2026-06-12T10:00:00Z"},
+                    "beatsPerMinute": 72,
+                },
+                "dataSource": {"platform": "FITBIT"},
+            },
+            source_updated_at=None,
+            privacy_tier="standard",
+        )
+        conn.execute(
+            """
+            INSERT INTO health_sample_observations(
+                source_id, observation_key, provider_data_type, metric,
+                sample_time, value_number, metric_unit, provenance_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source_id,
+                "heart-rate:2026-06-12T10:00:00Z",
+                "heart-rate",
+                "heart_rate_bpm",
+                "2026-06-12T10:00:00Z",
+                72.0,
+                "bpm",
+                '{"platform":"FITBIT"}',
+            ),
+        )
+        canonical_id = f"{source_id}:heart-rate:2026-06-12T10:00:00Z"
+        sync_control.attach_lineage(
+            conn,
+            canonical_table="health_sample_observations",
+            canonical_id=canonical_id,
+            raw_record_id=raw_record_id,
+        )
+        lineage = conn.execute(
+            """
+            SELECT canonical_table, canonical_id
+            FROM record_lineage
+            WHERE raw_record_id = ?
+            """,
+            (raw_record_id,),
+        ).fetchone()
+        raw_payload = conn.execute(
+            "SELECT payload_json FROM raw_records WHERE raw_record_id = ?",
+            (raw_record_id,),
+        ).fetchone()[0]
+
+    assert tuple(lineage) == ("health_sample_observations", canonical_id)
+    assert "heartRate" in raw_payload
+
+
+def test_location_sensitive_raw_payload_is_classified(modules):
+    store = modules["store"]
+    sync_control = modules["sync_control"]
+    store.initialize()
+
+    with store.connect() as conn:
+        source_id = sync_control.ensure_default_source(conn, "google_health")
+        raw_record_id = sync_control.persist_raw_record(
+            conn,
+            source_id=source_id,
+            sync_batch_id=None,
+            provider="google_health",
+            object_type="exercise_tcx",
+            external_id="exercise-123",
+            payload={"tcx": "<TrainingCenterDatabase>...</TrainingCenterDatabase>"},
+            source_updated_at=None,
+            privacy_tier="sensitive",
+            is_redacted=False,
+        )
+        row = conn.execute(
+            """
+            SELECT privacy_tier, is_redacted
+            FROM raw_records
+            WHERE raw_record_id = ?
+            """,
+            (raw_record_id,),
+        ).fetchone()
+
+    assert tuple(row) == ("sensitive", 0)
+
+
+def test_hot_health_tables_do_not_store_raw_payload_columns(modules):
+    store = modules["store"]
+    store.initialize()
+
+    allowed_json_columns = {
+        "provenance_json",
+        "quality_json",
+        "metric_payload_json",
+    }
+    with store.connect() as conn:
+        for table in (
+            "health_sample_observations",
+            "health_interval_observations",
+            "health_sessions",
+            "daily_health_metrics",
+        ):
+            columns = {
+                row[1]
+                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            raw_like_columns = {
+                column
+                for column in columns
+                if column.endswith("_json") and column not in allowed_json_columns
+            }
+            assert "raw_json" not in columns
+            assert "payload_json" not in columns
+            assert "metadata_json" not in columns
+            assert raw_like_columns == set()
+
+
+def test_health_tables_are_not_projected_to_semantic_layer_yet(modules):
+    store = modules["store"]
+    sync_control = modules["sync_control"]
+    semantic_layer = modules["semantic_layer"]
+    store.initialize()
+
+    with store.connect() as conn:
+        source_id = sync_control.ensure_default_source(conn, "google_health")
+        conn.execute(
+            """
+            INSERT INTO health_sample_observations(
+                source_id, observation_key, provider_data_type, metric,
+                sample_time, value_number, metric_unit
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source_id,
+                "heart-rate:2026-06-12T10:00:00Z",
+                "heart-rate",
+                "heart_rate_bpm",
+                "2026-06-12T10:00:00Z",
+                72.0,
+                "bpm",
+            ),
+        )
+        conn.commit()
+
+    semantic_layer.refresh_canonical_facts(start="2026-06-12", end="2026-06-12")
+
+    with store.connect() as conn:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM observations
+            WHERE source_table = 'health_sample_observations'
+            """
+        ).fetchone()
+
+    assert row is None
