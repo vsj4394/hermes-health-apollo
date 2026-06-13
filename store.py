@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -8,6 +9,8 @@ from pathlib import Path
 
 
 SCHEMA_VERSION = 8
+
+logger = logging.getLogger(__name__)
 
 
 class SyncAlreadyRunning(RuntimeError):
@@ -85,11 +88,27 @@ def _reconcile_pr10_schema(conn: sqlite3.Connection) -> None:
         row[0]
         for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
+    # One-time migration: only run while upgrading from a pre-v8 schema. Once the
+    # database reaches the current version this is a no-op early-return, so the PR #10
+    # drop logic does not run on every initialize() forever.
+    if "schema_version" in tables:
+        row = conn.execute("SELECT version FROM schema_version").fetchone()
+        if row is not None and row[0] >= SCHEMA_VERSION:
+            return
     if "daily_health_metrics" in tables:
         columns = {
             row[1] for row in conn.execute("PRAGMA table_info(daily_health_metrics)")
         }
         if "source_id" not in columns:
+            discarded = conn.execute(
+                "SELECT COUNT(*) FROM daily_health_metrics"
+            ).fetchone()[0]
+            if discarded:
+                logger.warning(
+                    "Dropping %d row(s) from legacy PR #10 daily_health_metrics during "
+                    "schema reconcile; loose-schema rows are not migrated.",
+                    discarded,
+                )
             conn.execute("DROP TABLE daily_health_metrics")
     conn.execute("DROP TABLE IF EXISTS google_health_samples")
     conn.execute("DROP TABLE IF EXISTS google_health_sessions")
@@ -698,6 +717,7 @@ def sync_guard(provider: str):
     initialize()
     now = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(database_path())
+    _configure(conn)
     try:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
