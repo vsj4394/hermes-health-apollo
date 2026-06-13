@@ -29,6 +29,7 @@ def database_path() -> Path:
 def connect() -> sqlite3.Connection:
     initialize()
     conn = sqlite3.connect(database_path())
+    _configure(conn)
     conn.row_factory = sqlite3.Row
     return conn
 
