@@ -14,7 +14,7 @@ import tempfile
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from . import context, onboarding, oura, store
+from . import context, google_health, google_health_auth, onboarding, oura, store
 
 SYNC_CRON_JOB_NAME = "health-data-sync"
 SYNC_CRON_SCHEDULE = "every 6h"
@@ -127,6 +127,9 @@ def sync_now(*_args, **kwargs) -> dict:
             end_date=end_date,
         )
         google_result = context.sync_google_workspace(google_start, days=google_days)
+        google_health_result = _sync_google_health(
+            lookback_days=lookback_days, start_date=start_date, end_date=end_date
+        )
     else:
         google_result = {
             "ok": False,
@@ -134,12 +137,32 @@ def sync_now(*_args, **kwargs) -> dict:
             "email_days": 0,
             "skipped": "Google Workspace sync skipped because sync arguments were invalid.",
         }
+        google_health_result = {
+            "ok": False,
+            "skipped": "Google Health sync skipped because sync arguments were invalid.",
+        }
     return {
-        "ok": bool(oura_result.get("ok")) or bool(google_result.get("ok")),
+        "ok": bool(oura_result.get("ok"))
+        or bool(google_result.get("ok"))
+        or bool(google_health_result.get("ok")),
         "freshness_policy_hours": onboarding.FRESHNESS_POLICY_HOURS,
         "oura": oura_result,
         "google_workspace": google_result,
+        "google_health": google_health_result,
     }
+
+
+def _sync_google_health(*, lookback_days, start_date, end_date) -> dict:
+    """Run a Google Health sync, degrading gracefully when it is not connected."""
+    kwargs: dict[str, object] = {"start_date": start_date, "end_date": end_date}
+    if isinstance(lookback_days, int):
+        kwargs["lookback_days"] = lookback_days
+    try:
+        return google_health.sync_google_health(**kwargs)
+    except google_health_auth.GoogleHealthNotConnected as exc:
+        return {"ok": False, "skipped": str(exc)}
+    except google_health.GoogleHealthAPIError as exc:
+        return {"ok": False, "error": str(exc)}
 
 
 def connect(*_args, **kwargs) -> dict:
@@ -164,6 +187,37 @@ def connect_google(*_args, **kwargs) -> dict:
         open_browser=bool(kwargs.get("open_browser")),
         revoke=bool(kwargs.get("revoke")),
     )
+
+
+def connect_google_health(*_args, **kwargs) -> dict:
+    return google_health_auth.connect_google_health(
+        client_id=kwargs.get("client_id"),
+        client_secret=kwargs.get("client_secret"),
+        code=kwargs.get("code"),
+        state=kwargs.get("state"),
+    )
+
+
+def disconnect_google_health(*_args, **_kwargs) -> dict:
+    removed: list[str] = []
+    for path in [
+        google_health_auth.token_path(),
+        google_health_auth.pending_token_path(),
+        google_health_auth.lock_path(),
+        google_health_auth.pending_state_path(),
+    ]:
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
+            removed.append(str(path))
+    # Clears only the Google Health client creds from ~/.hermes/.env; leaves the
+    # shared google_client_secret.json (used by Google Workspace) untouched.
+    credentials_cleared = google_health_auth.clear_client_credentials()
+    return {
+        "ok": True,
+        "connected": False,
+        "removed": removed,
+        "credentials_cleared": credentials_cleared,
+    }
 
 
 def calendar_peek(days: int = 3, *_args, **_kwargs) -> dict:
@@ -385,6 +439,16 @@ def _dispatch(raw_args: object) -> dict:
             ),
             revoke=bool(parsed.get("revoke")),
         )
+    if action in {"connect-google-health", "google-health-connect", "google-health"}:
+        parsed = _parse_flags(parts[1:])
+        return connect_google_health(
+            client_id=parsed.get("client-id") or parsed.get("client_id"),
+            client_secret=parsed.get("client-secret") or parsed.get("client_secret"),
+            code=parsed.get("code"),
+            state=parsed.get("state"),
+        )
+    if action in {"disconnect-google-health", "google-health-disconnect"}:
+        return disconnect_google_health()
     if action == "sync":
         parsed = _parse_flags(parts[1:])
         return sync_now(
@@ -414,6 +478,8 @@ def _dispatch(raw_args: object) -> dict:
             "setup",
             "connect",
             "connect-google",
+            "connect-google-health",
+            "disconnect-google-health",
             "sync",
             "ask",
             "status",
@@ -742,6 +808,10 @@ def _purge_local_health_data() -> list[str]:
         oura.pending_token_path(),
         oura.lock_path(),
         oura.pending_state_path(),
+        google_health_auth.token_path(),
+        google_health_auth.pending_token_path(),
+        google_health_auth.lock_path(),
+        google_health_auth.pending_state_path(),
         context.google_token_path(),
         context.google_client_secret_path(),
     ]:
@@ -750,6 +820,8 @@ def _purge_local_health_data() -> list[str]:
             removed.append(str(path))
     if oura.clear_oura_client_credentials():
         removed.append(str(oura.env_path()))
+    if google_health_auth.clear_client_credentials():
+        removed.append(str(google_health_auth.env_path()))
     return removed
 
 
@@ -1144,6 +1216,8 @@ def _freshness_providers() -> list[str]:
         providers.append("oura")
     if context.google_workspace_available():
         providers.append("google_workspace")
+    if google_health_auth.token_path().exists():
+        providers.append("google_health")
     return providers
 
 

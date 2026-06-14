@@ -652,7 +652,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn,
         cadence_minutes=360,
         schedule_key="health-data-sync",
-        sources=("oura", "google_calendar", "gmail", "manual_food"),
+        sources=("oura", "google_calendar", "gmail", "manual_food", "google_health"),
     )
     current = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0]
     if current == 0:
