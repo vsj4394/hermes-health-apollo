@@ -1216,6 +1216,8 @@ def _freshness_providers() -> list[str]:
         providers.append("oura")
     if context.google_workspace_available():
         providers.append("google_workspace")
+    if google_health_auth.token_path().exists():
+        providers.append("google_health")
     return providers
 
 

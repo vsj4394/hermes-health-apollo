@@ -602,7 +602,7 @@ class _Resp:
         return self.body
 
 
-def _fake_request(*, datapoints, errors=None, calls=None):
+def _fake_request(*, datapoints, errors=None, calls=None, identity_status=200):
     errors = errors or {}
 
     def request(method, url, *, params=None, headers=None):
@@ -610,6 +610,8 @@ def _fake_request(*, datapoints, errors=None, calls=None):
             calls.append((method, parse.urlparse(url).path, params))
         path = parse.urlparse(url).path
         if path.endswith("users/me/identity"):
+            if identity_status >= 400:
+                return _Resp(identity_status, {"error": {"message": "identity boom"}})
             return _Resp(200, dict(_IDENTITY))
         data_type = path.split("/dataTypes/")[1].split("/")[0]
         if data_type in errors:
@@ -815,3 +817,150 @@ def test_sync_refreshes_an_expired_token_before_fetching(modules):
     # The refreshed access token is persisted (refresh token preserved, not rotated).
     assert auth.load_token()["access_token"] == "fresh-access"
     assert auth.load_token()["refresh_token"] == "gh-refresh"
+
+
+def test_sync_sends_documented_time_filter_per_data_type(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+    calls = []
+
+    google_health.sync_google_health(
+        request=_fake_request(datapoints=_datapoints_by_type(), calls=calls),
+        start_date="2026-06-01",
+        end_date="2026-06-03",
+    )
+
+    filters = {}
+    for _method, path, params in calls:
+        if "/dataTypes/" in path:
+            dt = path.split("/dataTypes/")[1].split("/")[0]
+            filters[dt] = (params or {}).get("filter")
+
+    # End date is made exclusive (advanced one day): 2026-06-03 -> < 2026-06-04.
+    assert filters["heart-rate"] == (
+        'heart_rate.sample_time.physical_time >= "2026-06-01T00:00:00Z" '
+        'AND heart_rate.sample_time.physical_time < "2026-06-04T00:00:00Z"'
+    )
+    assert filters["steps"] == (
+        'steps.interval.start_time >= "2026-06-01T00:00:00Z" '
+        'AND steps.interval.start_time < "2026-06-04T00:00:00Z"'
+    )
+    assert filters["sleep"] == (
+        'sleep.interval.start_time >= "2026-06-01T00:00:00Z" '
+        'AND sleep.interval.start_time < "2026-06-04T00:00:00Z"'
+    )
+    assert filters["daily-resting-heart-rate"] == (
+        'daily_resting_heart_rate.date >= "2026-06-01" '
+        'AND daily_resting_heart_rate.date < "2026-06-04"'
+    )
+
+
+def test_list_data_points_paginates_and_forwards_page_token(modules):
+    google_health = modules["google_health"]
+    pages = [
+        {"dataPoints": [{"name": "a"}], "nextPageToken": "p2"},
+        {"dataPoints": [{"name": "b"}]},
+    ]
+    seen = []
+
+    def request(method, url, *, params=None, headers=None):
+        seen.append(dict(params or {}))
+        return _Resp(200, pages[len(seen) - 1])
+
+    points = google_health.list_data_points(
+        data_type="steps", access_token="t", request=request, page_size=500
+    )
+    assert [p["name"] for p in points] == ["a", "b"]
+    assert "pageToken" not in seen[0]
+    assert seen[0]["pageSize"] == 500
+    assert seen[1]["pageToken"] == "p2"
+
+
+def test_list_data_points_stops_at_max_pages(modules):
+    google_health = modules["google_health"]
+
+    def request(method, url, *, params=None, headers=None):
+        # Every page advertises another token; the cap must stop the loop.
+        return _Resp(200, {"dataPoints": [{"name": "x"}], "nextPageToken": "always"})
+
+    points = google_health.list_data_points(
+        data_type="steps", access_token="t", request=request, max_pages=3
+    )
+    assert len(points) == 3
+
+
+def test_http_request_converts_transport_error_to_api_error(modules, monkeypatch):
+    google_health = modules["google_health"]
+    from urllib import error as urllib_error
+
+    def boom(*_args, **_kwargs):
+        raise urllib_error.URLError("connection refused")
+
+    monkeypatch.setattr(google_health.urllib_request, "urlopen", boom)
+    with pytest.raises(google_health.GoogleHealthAPIError, match="transport error"):
+        google_health.http_request(
+            "GET", "https://health.googleapis.com/v4/x", headers={}
+        )
+
+
+def test_sync_identity_failure_is_best_effort(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+
+    result = google_health.sync_google_health(
+        request=_fake_request(datapoints=_datapoints_by_type(), identity_status=500),
+        today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+    )
+
+    assert result["ok"] is True
+    assert result["user_id"] is None
+    assert result["identity_error"]
+
+    with store.connect() as conn:
+        provider_user_id = conn.execute(
+            "SELECT provider_user_id FROM health_sample_observations"
+        ).fetchone()[0]
+        identity_errors = conn.execute(
+            "SELECT COUNT(*) FROM sync_errors WHERE object_type = 'identity'"
+        ).fetchone()[0]
+        run = conn.execute(
+            "SELECT status, error_count FROM sync_runs ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+
+    # Data types all succeeded; only identity errored -> run ok, rows keep NULL user.
+    assert provider_user_id is None
+    assert identity_errors == 1
+    assert tuple(run) == ("ok", 1)
+
+
+def test_sync_raises_when_token_has_no_access_token(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    auth.save_token(
+        {
+            "access_token": "",
+            "refresh_token": "r",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+        }
+    )
+    called = []
+
+    def request(*_args, **_kwargs):
+        called.append(1)
+        return _Resp(200, {})
+
+    # Reference the exception class through google_health's own bound auth module so
+    # the assertion matches the class actually raised, regardless of test ordering.
+    with pytest.raises(google_health.google_health_auth.GoogleHealthNotConnected):
+        google_health.sync_google_health(
+            request=request, today=datetime(2026, 6, 14, tzinfo=timezone.utc)
+        )
+    assert called == []  # raised before any HTTP call

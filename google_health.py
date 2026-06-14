@@ -464,9 +464,11 @@ API_VERSION = "v4"
 # The authenticated-user resource segment, e.g. .../v4/<API_USER_PATH>/identity.
 API_USER_PATH = "users/me"
 DEFAULT_LOOKBACK_DAYS = 7
-# dataPoints.list caps pageSize at 10000 (default 1440); 1000 keeps pages small.
-PAGE_SIZE = 1000
-MAX_PAGES = 50
+# dataPoints.list caps pageSize at 10000 (the max; default 1440). With the time
+# filter applied the per-run window is bounded, so a high cap mainly guards
+# high-frequency streams (e.g. per-second heart rate) from truncation within a window.
+PAGE_SIZE = 10000
+MAX_PAGES = 100
 
 
 class GoogleHealthAPIError(RuntimeError):
@@ -499,8 +501,17 @@ def http_request(
             body = _read_json_body(response)
             return GoogleHealthResponse(response.status, body, dict(response.headers.items()))
     except urllib_error.HTTPError as exc:
+        # An HTTP status response (4xx/5xx) -- keep the real status + body so the
+        # caller's `status >= 400` branch raises a per-data-type GoogleHealthAPIError.
         body = _read_json_body(exc)
         return GoogleHealthResponse(exc.code, body, dict(exc.headers.items()))
+    except (urllib_error.URLError, TimeoutError, OSError) as exc:
+        # Transport failure (DNS / connection refused / TLS / timeout). HTTPError is
+        # a URLError subclass and is handled above; this branch is the bare-transport
+        # case. Surface it as a GoogleHealthAPIError so the per-data-type and
+        # best-effort-identity handlers degrade the run to partial instead of letting
+        # a raw URLError abort the whole sync inside sync_guard.
+        raise GoogleHealthAPIError(f"Google Health request transport error: {exc}") from exc
 
 
 def _read_json_body(response: Any) -> dict[str, Any]:
@@ -549,10 +560,10 @@ def list_data_points(
 ) -> list[dict[str, Any]]:
     """``users.dataTypes.dataPoints.list`` -> all DataPoints for one data type.
 
-    ``time_filter`` is the v4 ``filter`` query parameter (RFC-3339 time-range
-    filtering on observation/interval times). Its exact grammar is not pinned down
-    in the public docs, so it is left as an injectable passthrough (default: unset,
-    i.e. fetch the most recent points bounded by ``page_size`` * ``max_pages``).
+    ``time_filter`` is the v4 ``filter`` query parameter (AIP-160 time-range
+    filtering; see :func:`_time_filter`). When unset the API returns the most recent
+    points bounded only by ``page_size`` * ``max_pages``; callers should pass a
+    bounded filter (``sync_google_health`` builds one from the requested window).
     """
     url = f"{API_BASE_URL}/{API_VERSION}/{API_USER_PATH}/dataTypes/{data_type}/dataPoints"
     headers = _auth_headers(access_token)
@@ -618,6 +629,34 @@ def _parse_window_date(value: str | None, field_name: str) -> _date:
         raise GoogleHealthAPIError(
             f"Google Health sync {field_name} must be YYYY-MM-DD."
         ) from exc
+
+
+def _time_filter(spec: dict[str, Any] | None, data_type: str, start_iso: str, end_iso: str) -> str | None:
+    """Build the v4 ``filter`` expression bounding one data type to [start, end].
+
+    Per developers.google.com/health (dataPoints.list filter docs) the grammar is
+    AIP-160 with snake_case proto field paths and a half-open range, e.g.
+    ``steps.interval.start_time >= "2023-11-24T00:00:00Z" AND steps.interval.start_time
+    < "2023-11-25T00:00:00Z"``. The data-type prefix is the snake_case proto field
+    (kebab id with '-' -> '_'); samples filter on ``sample_time.physical_time``,
+    intervals/sessions on ``interval.start_time``, and daily metrics on ``date``
+    (ISO calendar dates). ``end_iso`` is made exclusive by advancing one day.
+    """
+    if not spec:
+        return None
+    field = data_type.replace("-", "_")
+    end_exclusive = (_date.fromisoformat(end_iso) + timedelta(days=1)).isoformat()
+    shape = spec.get("shape")
+    if shape == "sample":
+        path = f"{field}.sample_time.physical_time"
+        return f'{path} >= "{start_iso}T00:00:00Z" AND {path} < "{end_exclusive}T00:00:00Z"'
+    if shape in ("interval", "session"):
+        path = f"{field}.interval.start_time"
+        return f'{path} >= "{start_iso}T00:00:00Z" AND {path} < "{end_exclusive}T00:00:00Z"'
+    if shape == "daily":
+        path = f"{field}.date"
+        return f'{path} >= "{start_iso}" AND {path} < "{end_exclusive}"'
+    return None
 
 
 def sync_google_health(
@@ -694,12 +733,22 @@ def sync_google_health(
         endpoint_errors: dict[str, str] = {}
         endpoint_counts: dict[str, int] = {}
         for data_type in registry:
+            # An explicit time_filter override wins; otherwise bound the fetch to the
+            # computed window via the documented v4 filter so the run/cursor metadata
+            # reflects what was actually fetched (no silent most-recent-only pull).
+            dt_filter = (
+                time_filter
+                if time_filter is not None
+                else _time_filter(
+                    METRIC_REGISTRY.get(data_type), data_type, window_start, window_end
+                )
+            )
             try:
                 points = list_data_points(
                     data_type=data_type,
                     access_token=access_token,
                     request=requester,
-                    time_filter=time_filter,
+                    time_filter=dt_filter,
                 )
             except GoogleHealthAPIError as exc:
                 endpoint_errors[data_type] = str(exc)
