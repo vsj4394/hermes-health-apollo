@@ -4,7 +4,9 @@ import importlib.util
 import json
 import sys
 import types
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib import parse
 
 import pytest
 
@@ -42,74 +44,105 @@ def modules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         "store": load_module("store"),
         "sync_control": load_module("sync_control"),
         "google_health": load_module("google_health"),
+        "auth": load_module("google_health_auth"),
     }
 
 
-def _sample_response():
+def _unix(rfc3339: str) -> int:
+    return int(
+        datetime.fromisoformat(rfc3339.replace("Z", "+00:00"))
+        .astimezone(timezone.utc)
+        .timestamp()
+    )
+
+
+# --- Real Google Health API v4 DataPoint fixtures -------------------------- #
+# Shape verified against developers.google.com/health (REST reference + v4
+# discovery doc): each DataPoint is {name, dataSource, <unionField>: {...}}.
+
+
+def _sample_response():  # heart-rate -> sample
     return {
-        "dataType": "com.google.heart_rate.bpm",
+        "dataType": "heart-rate",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T10:00:00Z",
-                "endTime": "2026-06-12T10:00:00Z",
-                "value": [{"fpVal": 62.0}],
+                "name": "users/health-user-1/dataTypes/heart-rate/dataPoints/hr-1",
                 "dataSource": {
-                    "recordingMethod": "automatically_recorded",
+                    "recordingMethod": "AUTOMATICALLY_RECORDED",
                     "platform": "FITBIT",
                     "application": {"packageName": "com.fitbit"},
                     "device": {"type": "WATCH", "uid": "dev-1"},
+                },
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "2026-06-12T10:00:00Z"},
+                    "beatsPerMinute": "62",
                 },
             }
         ],
     }
 
 
-def _interval_response():
+def _interval_response():  # steps -> interval
     return {
-        "dataType": "com.google.step_count.delta",
+        "dataType": "steps",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T10:00:00Z",
-                "endTime": "2026-06-12T10:05:00Z",
-                "value": [{"intVal": 540}],
+                "name": "users/health-user-1/dataTypes/steps/dataPoints/st-1",
                 "dataSource": {"platform": "FITBIT"},
+                "steps": {
+                    "interval": {
+                        "startTime": "2026-06-12T10:00:00Z",
+                        "endTime": "2026-06-12T10:05:00Z",
+                    },
+                    "count": "540",
+                },
             }
         ],
     }
 
 
-def _session_response():
+def _session_response():  # sleep -> session
     return {
-        "dataType": "com.google.sleep.segment",
+        "dataType": "sleep",
         "userId": "health-user-1",
         "point": [
             {
-                "id": "sleep-session-1",
-                "startTime": "2026-06-12T23:10:00Z",
-                "endTime": "2026-06-13T06:40:00Z",
+                "name": "users/health-user-1/dataTypes/sleep/dataPoints/sleep-session-1",
                 "dataSource": {"platform": "FITBIT"},
+                "sleep": {
+                    "interval": {
+                        "startTime": "2026-06-12T23:10:00Z",
+                        "endTime": "2026-06-13T06:40:00Z",
+                    }
+                },
             }
         ],
     }
 
 
-def _daily_response():
+def _daily_response():  # daily-resting-heart-rate -> daily
     return {
-        "dataType": "com.google.step_count.daily",
+        "dataType": "daily-resting-heart-rate",
         "userId": "health-user-1",
         "point": [
             {
-                "day": "2026-06-12",
-                "value": [{"intVal": 8088}],
-                "dataSource": {"platform": "GOOGLE_WEB_API"},
+                "name": (
+                    "users/health-user-1/dataTypes/daily-resting-heart-rate/"
+                    "dataPoints/drhr-1"
+                ),
+                "dataSource": {"platform": "GOOGLE"},
+                "dailyRestingHeartRate": {
+                    "date": {"year": 2026, "month": 6, "day": 12},
+                    "beatsPerMinute": "58",
+                },
             }
         ],
     }
 
 
-def test_sample_datapoint_persists_with_provenance_and_lineage(modules):
+def test_sample_datapoint_persists_with_provenance_lineage_and_unix(modules):
     store = modules["store"]
     google_health = modules["google_health"]
     store.initialize()
@@ -120,7 +153,8 @@ def test_sample_datapoint_persists_with_provenance_and_lineage(modules):
         row = conn.execute(
             """
             SELECT observation_key, provider_user_id, provider_data_type,
-                   metric, metric_unit, value_number, sample_time, provenance_json
+                   metric, metric_unit, value_number, sample_time, sample_time_unix,
+                   provenance_json
             FROM health_sample_observations
             """
         ).fetchall()
@@ -133,17 +167,19 @@ def test_sample_datapoint_persists_with_provenance_and_lineage(modules):
             metric_unit,
             value_number,
             sample_time,
+            sample_time_unix,
             provenance_json,
         ) = tuple(row[0])
         assert provider_user_id == "health-user-1"
-        assert provider_data_type == "com.google.heart_rate.bpm"
+        assert provider_data_type == "heart-rate"
         assert metric == "heart_rate"
         assert metric_unit == "bpm"
         assert value_number == 62.0
         assert sample_time == "2026-06-12T10:00:00Z"
+        # The live connector must populate the format-independent ordering guard.
+        assert sample_time_unix == _unix("2026-06-12T10:00:00Z")
         assert json.loads(provenance_json)["platform"] == "FITBIT"
 
-        # Raw payload persisted and linked back to the canonical row.
         lineage = conn.execute(
             """
             SELECT rr.object_type
@@ -157,7 +193,7 @@ def test_sample_datapoint_persists_with_provenance_and_lineage(modules):
         assert len(lineage) == 1
 
 
-def test_interval_datapoint_persists(modules):
+def test_interval_datapoint_persists_with_unix(modules):
     store = modules["store"]
     google_health = modules["google_health"]
     store.initialize()
@@ -167,17 +203,29 @@ def test_interval_datapoint_persists(modules):
 
         rows = conn.execute(
             """
-            SELECT metric, metric_unit, value_number, start_time, end_time
+            SELECT metric, metric_unit, value_number, start_time, end_time,
+                   start_time_unix, end_time_unix
             FROM health_interval_observations
             """
         ).fetchall()
         assert len(rows) == 1
-        metric, metric_unit, value_number, start_time, end_time = tuple(rows[0])
+        (
+            metric,
+            metric_unit,
+            value_number,
+            start_time,
+            end_time,
+            start_time_unix,
+            end_time_unix,
+        ) = tuple(rows[0])
         assert metric == "steps"
         assert metric_unit == "count"
         assert value_number == 540
         assert start_time == "2026-06-12T10:00:00Z"
         assert end_time == "2026-06-12T10:05:00Z"
+        assert start_time_unix == _unix("2026-06-12T10:00:00Z")
+        assert end_time_unix == _unix("2026-06-12T10:05:00Z")
+        assert end_time_unix > start_time_unix
 
 
 def test_session_datapoint_persists(modules):
@@ -203,7 +251,7 @@ def test_session_datapoint_persists(modules):
         assert duration == 7 * 3600 + 30 * 60
 
 
-def test_daily_rollup_persists_with_aggregation_kind(modules):
+def test_daily_datapoint_persists_with_civil_date_and_aggregation_kind(modules):
     store = modules["store"]
     google_health = modules["google_health"]
     store.initialize()
@@ -220,8 +268,8 @@ def test_daily_rollup_persists_with_aggregation_kind(modules):
         assert len(rows) == 1
         day, metric, value_number, aggregation_kind = tuple(rows[0])
         assert day == "2026-06-12"
-        assert metric == "steps"
-        assert value_number == 8088
+        assert metric == "resting_heart_rate"
+        assert value_number == 58.0
         assert aggregation_kind == "provider_daily_summary"
 
 
@@ -230,18 +278,28 @@ def test_name_absent_points_get_deterministic_distinct_keys(modules):
     google_health = modules["google_health"]
     store.initialize()
 
-    response = _sample_response()
-    response["point"].append(
-        {
-            "startTime": "2026-06-12T10:01:00Z",
-            "endTime": "2026-06-12T10:01:00Z",
-            "value": [{"fpVal": 64.0}],
-            "dataSource": {"platform": "FITBIT"},
-        }
-    )
+    # Defensive: a DataPoint without a resource `name` still persists distinctly,
+    # keyed by its sample instant.
+    response = {
+        "dataType": "heart-rate",
+        "userId": "health-user-1",
+        "point": [
+            {
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "2026-06-12T10:00:00Z"},
+                    "beatsPerMinute": "62",
+                }
+            },
+            {
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "2026-06-12T10:01:00Z"},
+                    "beatsPerMinute": "64",
+                }
+            },
+        ],
+    }
 
     with store.connect() as conn:
-        # Neither point carries DataPoint.name; both must still persist distinctly.
         google_health.persist_google_health(conn, responses=[response])
         count = conn.execute(
             "SELECT COUNT(*) FROM health_sample_observations"
@@ -289,18 +347,19 @@ def test_unregistered_datatype_is_skipped(modules):
     store.initialize()
 
     unknown = {
-        "dataType": "com.google.unsupported.metric",
+        "dataType": "blood-glucose",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T10:00:00Z",
-                "endTime": "2026-06-12T10:00:00Z",
-                "value": [{"fpVal": 1.0}],
+                "name": "users/health-user-1/dataTypes/blood-glucose/dataPoints/bg-1",
+                "bloodGlucose": {
+                    "sampleTime": {"physicalTime": "2026-06-12T10:00:00Z"},
+                    "level": {"value": "5.4"},
+                },
             }
         ],
     }
     with store.connect() as conn:
-        # No registry entry -> skipped quietly, no rows, no raw records.
         google_health.persist_google_health(conn, responses=[unknown])
         sample = conn.execute(
             "SELECT COUNT(*) FROM health_sample_observations"
@@ -315,24 +374,25 @@ def test_derive_key_is_collision_safe(modules):
     google_health = modules["google_health"]
     store.initialize()
 
-    # Two distinct points whose data_type/name/time parts would collide under a naive
-    # ':'-join ("...bpm:a:b:2026-06-12T11:00:00Z" for both). They must persist as two
-    # rows, not silently overwrite each other.
+    # Two distinct points whose data_type/name/time parts would collide under a
+    # naive ':'-join. They must persist as two rows, not silently overwrite.
     response = {
-        "dataType": "com.google.heart_rate.bpm",
+        "dataType": "heart-rate",
         "userId": "health-user-1",
         "point": [
             {
                 "name": "a:b",
-                "startTime": "2026-06-12T11:00:00Z",
-                "endTime": "2026-06-12T11:00:00Z",
-                "value": [{"fpVal": 1.0}],
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "2026-06-12T11:00:00Z"},
+                    "beatsPerMinute": "1",
+                },
             },
             {
                 "name": "a",
-                "startTime": "b:2026-06-12T11:00:00Z",
-                "endTime": "b:2026-06-12T11:00:00Z",
-                "value": [{"fpVal": 2.0}],
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "b:2026-06-12T11:00:00Z"},
+                    "beatsPerMinute": "2",
+                },
             },
         ],
     }
@@ -350,13 +410,18 @@ def test_out_of_order_interval_is_skipped_without_aborting_batch(modules):
     store.initialize()
 
     bad_interval = {
-        "dataType": "com.google.step_count.delta",
+        "dataType": "steps",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T10:05:00Z",
-                "endTime": "2026-06-12T10:00:00Z",
-                "value": [{"intVal": 10}],
+                "name": "users/health-user-1/dataTypes/steps/dataPoints/bad",
+                "steps": {
+                    "interval": {
+                        "startTime": "2026-06-12T10:05:00Z",
+                        "endTime": "2026-06-12T10:00:00Z",
+                    },
+                    "count": "10",
+                },
             }
         ],
     }
@@ -382,13 +447,18 @@ def test_int_zero_value_is_preserved_as_true_zero(modules):
     store.initialize()
 
     response = {
-        "dataType": "com.google.step_count.delta",
+        "dataType": "steps",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T10:00:00Z",
-                "endTime": "2026-06-12T10:05:00Z",
-                "value": [{"intVal": 0}],
+                "name": "users/health-user-1/dataTypes/steps/dataPoints/zero",
+                "steps": {
+                    "interval": {
+                        "startTime": "2026-06-12T10:00:00Z",
+                        "endTime": "2026-06-12T10:05:00Z",
+                    },
+                    "count": "0",
+                },
             }
         ],
     }
@@ -401,52 +471,21 @@ def test_int_zero_value_is_preserved_as_true_zero(modules):
     assert value == 0.0
 
 
-def test_provider_aggregation_kind_is_ignored_and_does_not_abort_batch(modules):
-    store = modules["store"]
-    google_health = modules["google_health"]
-    store.initialize()
-
-    daily_bogus = {
-        "dataType": "com.google.step_count.daily",
-        "userId": "health-user-1",
-        "point": [
-            {
-                "day": "2026-06-12",
-                "aggregationKind": "hourly_bucket",
-                "value": [{"intVal": 8088}],
-            }
-        ],
-    }
-    with store.connect() as conn:
-        # An out-of-set provider aggregationKind must not reach the CHECK column and
-        # must not abort the good sample response queued after it.
-        google_health.persist_google_health(
-            conn, responses=[daily_bogus, _sample_response()]
-        )
-        daily = conn.execute(
-            "SELECT aggregation_kind FROM daily_health_metrics"
-        ).fetchall()
-        sample_count = conn.execute(
-            "SELECT COUNT(*) FROM health_sample_observations"
-        ).fetchone()[0]
-    assert len(daily) == 1
-    assert tuple(daily[0])[0] == "provider_daily_summary"
-    assert sample_count == 1
-
-
 def test_non_numeric_value_does_not_abort_batch(modules):
     store = modules["store"]
     google_health = modules["google_health"]
     store.initialize()
 
     bad_value = {
-        "dataType": "com.google.heart_rate.bpm",
+        "dataType": "heart-rate",
         "userId": "health-user-1",
         "point": [
             {
-                "startTime": "2026-06-12T09:00:00Z",
-                "endTime": "2026-06-12T09:00:00Z",
-                "value": [{"fpVal": "abc"}],
+                "name": "users/health-user-1/dataTypes/heart-rate/dataPoints/bad",
+                "heartRate": {
+                    "sampleTime": {"physicalTime": "2026-06-12T09:00:00Z"},
+                    "beatsPerMinute": "not-a-number",
+                },
             }
         ],
     }
@@ -500,14 +539,18 @@ def test_session_day_uses_profile_timezone_california(modules):
     store.initialize()
 
     session = {
-        "dataType": "com.google.sleep.segment",
+        "dataType": "sleep",
         "userId": "health-user-1",
         "point": [
             {
-                "id": "sleep-ca-1",
-                "startTime": "2026-06-13T05:00:00Z",
-                "endTime": "2026-06-13T12:30:00Z",
+                "name": "users/health-user-1/dataTypes/sleep/dataPoints/sleep-ca-1",
                 "dataSource": {"platform": "FITBIT"},
+                "sleep": {
+                    "interval": {
+                        "startTime": "2026-06-13T05:00:00Z",
+                        "endTime": "2026-06-13T12:30:00Z",
+                    }
+                },
             }
         ],
     }
@@ -530,3 +573,245 @@ def test_invalid_profile_timezone_falls_back_to_utc_day(modules):
         google_health.persist_google_health(conn, responses=[_session_response()])
         day = conn.execute("SELECT day FROM health_sessions").fetchone()[0]
     assert day == "2026-06-12"
+
+
+# --- Live fetch + sync (fully offline, injected HTTP) ---------------------- #
+
+_IDENTITY = {
+    "name": "users/123/identity",
+    "healthUserId": "123",
+    "legacyUserId": "fitbit-1",
+}
+
+
+def _datapoints_by_type():
+    return {
+        "heart-rate": _sample_response()["point"],
+        "steps": _interval_response()["point"],
+        "sleep": _session_response()["point"],
+        "daily-resting-heart-rate": _daily_response()["point"],
+    }
+
+
+class _Resp:
+    def __init__(self, status_code, body):
+        self.status_code = status_code
+        self.body = body
+
+    def json(self):
+        return self.body
+
+
+def _fake_request(*, datapoints, errors=None, calls=None):
+    errors = errors or {}
+
+    def request(method, url, *, params=None, headers=None):
+        if calls is not None:
+            calls.append((method, parse.urlparse(url).path, params))
+        path = parse.urlparse(url).path
+        if path.endswith("users/me/identity"):
+            return _Resp(200, dict(_IDENTITY))
+        data_type = path.split("/dataTypes/")[1].split("/")[0]
+        if data_type in errors:
+            return _Resp(errors[data_type], {"error": {"message": "boom"}})
+        return _Resp(200, {"dataPoints": datapoints.get(data_type, [])})
+
+    return request
+
+
+def _save_fresh_token(auth):
+    auth.save_token(
+        {
+            "access_token": "gh-access",
+            "refresh_token": "gh-refresh",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+        }
+    )
+
+
+def test_sync_persists_all_shapes_with_unix_and_advances_cursor(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+
+    result = google_health.sync_google_health(
+        request=_fake_request(datapoints=_datapoints_by_type()),
+        today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+    )
+
+    assert result["ok"] is True
+    assert result["user_id"] == "123"
+    assert result["endpoint_errors"] == {}
+    assert result["counts"] == {"sample": 1, "interval": 1, "session": 1, "daily": 1}
+
+    with store.connect() as conn:
+        sample = conn.execute(
+            "SELECT provider_user_id, value_number, sample_time_unix "
+            "FROM health_sample_observations"
+        ).fetchone()
+        interval_unix = conn.execute(
+            "SELECT start_time_unix, end_time_unix FROM health_interval_observations"
+        ).fetchone()
+        session_count = conn.execute("SELECT COUNT(*) FROM health_sessions").fetchone()[0]
+        daily_count = conn.execute(
+            "SELECT COUNT(*) FROM daily_health_metrics"
+        ).fetchone()[0]
+        raw = conn.execute(
+            "SELECT COUNT(*) FROM raw_records WHERE provider = 'google_health'"
+        ).fetchone()[0]
+        source = conn.execute(
+            "SELECT status, last_synced_at FROM health_sources WHERE source_slug = 'google_health'"
+        ).fetchone()
+        run = conn.execute(
+            "SELECT status, records_seen, records_written, error_count "
+            "FROM sync_runs ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        cursor = conn.execute(
+            "SELECT cursor_value FROM sync_cursors WHERE object_type = 'dataPoints' "
+            "AND cursor_kind = 'date_window_end'"
+        ).fetchone()
+
+    assert tuple(sample) == ("123", 62.0, _unix("2026-06-12T10:00:00Z"))
+    assert tuple(interval_unix) == (
+        _unix("2026-06-12T10:00:00Z"),
+        _unix("2026-06-12T10:05:00Z"),
+    )
+    assert session_count == 1
+    assert daily_count == 1
+    assert raw == 4
+    assert tuple(source) == ("connected",) + (source[1],)
+    assert source[1] is not None
+    assert tuple(run) == ("ok", 4, 4, 0)
+    assert tuple(cursor) == ("2026-06-14",)
+
+
+def test_sync_partial_when_one_datatype_errors(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+
+    result = google_health.sync_google_health(
+        request=_fake_request(datapoints=_datapoints_by_type(), errors={"sleep": 403}),
+        today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+    )
+
+    assert result["ok"] is True
+    assert "sleep" in result["endpoint_errors"]
+    assert "403" in result["endpoint_errors"]["sleep"]
+
+    with store.connect() as conn:
+        run = conn.execute(
+            "SELECT status, error_count FROM sync_runs ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        error_row = conn.execute(
+            "SELECT object_type, retryable FROM sync_errors ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        source = conn.execute(
+            "SELECT status FROM health_sources WHERE source_slug = 'google_health'"
+        ).fetchone()
+        # The healthy data types still persisted.
+        sample_count = conn.execute(
+            "SELECT COUNT(*) FROM health_sample_observations"
+        ).fetchone()[0]
+        session_count = conn.execute("SELECT COUNT(*) FROM health_sessions").fetchone()[0]
+
+    assert tuple(run) == ("partial", 1)
+    assert tuple(error_row) == ("sleep", 1)
+    assert tuple(source) == ("partial",)
+    assert sample_count == 1
+    assert session_count == 0  # the errored sleep data type wrote nothing
+
+
+def test_sync_raises_and_marks_error_when_all_datatypes_fail(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+
+    errors = {dt: 500 for dt in google_health.METRIC_REGISTRY}
+    with pytest.raises(google_health.GoogleHealthAPIError, match="all data types"):
+        google_health.sync_google_health(
+            request=_fake_request(datapoints={}, errors=errors),
+            today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+        )
+
+    with store.connect() as conn:
+        run = conn.execute(
+            "SELECT status FROM sync_runs ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM sync_cursors WHERE object_type = 'dataPoints'"
+        ).fetchone()[0]
+    assert tuple(run) == ("error",)
+    # A total failure must NOT advance the incremental cursor.
+    assert cursor == 0
+
+
+def test_sync_is_idempotent_across_runs(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    _save_fresh_token(auth)
+
+    for _ in range(2):
+        google_health.sync_google_health(
+            request=_fake_request(datapoints=_datapoints_by_type()),
+            today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+        )
+
+    with store.connect() as conn:
+        counts = {
+            table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in (
+                "health_sample_observations",
+                "health_interval_observations",
+                "health_sessions",
+                "daily_health_metrics",
+                "raw_records",
+            )
+        }
+    assert counts["health_sample_observations"] == 1
+    assert counts["health_interval_observations"] == 1
+    assert counts["health_sessions"] == 1
+    assert counts["daily_health_metrics"] == 1
+    assert counts["raw_records"] == 4
+
+
+def test_sync_refreshes_an_expired_token_before_fetching(modules):
+    store = modules["store"]
+    google_health = modules["google_health"]
+    auth = modules["auth"]
+    store.initialize()
+    auth.save_client_credentials("client-id", "client-secret")
+    auth.save_token(
+        {
+            "access_token": "stale",
+            "refresh_token": "gh-refresh",
+            "expires_at": (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),
+        }
+    )
+    refresh_calls = []
+
+    def http_post(url, data, headers=None):
+        refresh_calls.append((url, data))
+        return {"access_token": "fresh-access", "expires_in": 3600}
+
+    result = google_health.sync_google_health(
+        request=_fake_request(datapoints=_datapoints_by_type()),
+        http_post=http_post,
+        today=datetime(2026, 6, 14, tzinfo=timezone.utc),
+    )
+
+    assert result["ok"] is True
+    assert len(refresh_calls) == 1
+    assert refresh_calls[0][0] == "https://oauth2.googleapis.com/token"
+    assert refresh_calls[0][1]["grant_type"] == "refresh_token"
+    # The refreshed access token is persisted (refresh token preserved, not rotated).
+    assert auth.load_token()["access_token"] == "fresh-access"
+    assert auth.load_token()["refresh_token"] == "gh-refresh"

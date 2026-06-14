@@ -886,6 +886,46 @@ def test_cli_health_connect_google_forwards_oauth_args(monkeypatch, tmp_path):
     }
 
 
+def test_cli_health_connect_google_health_forwards_oauth_args(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    commands = load_module("commands")
+    captured = {}
+
+    def fake_connect(**kwargs):
+        captured.update(kwargs)
+        return {"ok": False, "connected": False, "authorize_url": "https://accounts.google.com/x"}
+
+    monkeypatch.setattr(commands.google_health_auth, "connect_google_health", fake_connect)
+
+    result = commands.cli_health(
+        "connect-google-health --client-id cid --client-secret csecret --code abc --state st"
+    )
+
+    assert result["ok"] is False
+    assert captured == {
+        "client_id": "cid",
+        "client_secret": "csecret",
+        "code": "abc",
+        "state": "st",
+    }
+
+
+def test_cli_health_disconnect_google_health_removes_token(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    commands = load_module("commands")
+    commands.google_health_auth.save_token(
+        {"access_token": "gh-access", "refresh_token": "gh-refresh"}
+    )
+    assert commands.google_health_auth.token_path().exists()
+
+    result = commands.cli_health("disconnect-google-health")
+
+    assert result["ok"] is True
+    assert result["connected"] is False
+    assert not commands.google_health_auth.token_path().exists()
+    assert str(commands.google_health_auth.token_path()) in result["removed"]
+
+
 def test_cli_health_sync_reports_invalid_backfill_days(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     commands = load_module("commands")
