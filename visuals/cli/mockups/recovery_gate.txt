@@ -1,9 +1,0 @@
-RECOVERY GATE   Fri 2026-06-12
-
-readiness   72  [=======---] ok
-sleep       81  [========--] good
-meetings   330m [!!!!!!!!--] heavy
-email load  med [=====-----]
-
-verdict: protect 14:00-16:00 and avoid hard workout after the final meeting.
-coverage: readiness today, sleep last night, calendar tomorrow.
