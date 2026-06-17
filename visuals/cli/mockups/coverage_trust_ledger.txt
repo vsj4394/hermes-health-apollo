@@ -1,9 +1,0 @@
-DATA COVERAGE   last 30d
-
-oura daily       29/30  [#########.]  partial: 1 day
-heart rate       22/30  [#######...]  gaps: 8 days
-calendar         30/30  [##########]
-email            21/30  [#######...]  metadata only
-food              6/30  [##........]  sparse
-
-interpretation: meeting/stress visuals ok; food/sleep timing is thin.
