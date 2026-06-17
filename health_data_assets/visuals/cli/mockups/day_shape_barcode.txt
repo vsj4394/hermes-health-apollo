@@ -1,9 +1,0 @@
-DAY SHAPE   2026-06-05
-
-sleep   [#######.]  6h42
-stress  __/^^^\____
-cal     ..##.####..##..
-email   _/^^\__/^\____
-food    ...B....L....D.
-
-legend: # occupied, ^ elevated, B/L/D meal timing. Titles and message text hidden.
