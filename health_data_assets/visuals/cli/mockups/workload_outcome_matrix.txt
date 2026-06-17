@@ -1,8 +1,0 @@
-WORKLOAD MATRIX   90d
-
-                  light email    heavy email
-light meetings    stress 0.8h    stress 1.4h
-heavy meetings    stress 2.1h    stress 3.8h  << hotspot
-
-coverage: calendar 86/90d, email 72/90d, Oura stress 81/90d.
-caveat: association only; use as a triage view, not a causal claim.
